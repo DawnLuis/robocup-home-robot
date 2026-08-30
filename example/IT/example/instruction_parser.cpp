@@ -105,7 +105,11 @@ ObjectType InstructionParser::str_to_object_type(const std::string& s) const {
         {"refrigerator", ObjectType::Refrigerator},
         {"closet", ObjectType::Closet}, {"cupboard", ObjectType::Cupboard},
         {"microwave", ObjectType::Microwave}, {"sofa", ObjectType::Sofa},
-        {"table", ObjectType::Table}
+        {"table", ObjectType::Table},
+        {"plant", ObjectType::Plant}, {"couch", ObjectType::Couch},
+        {"workspace", ObjectType::Workspace}, {"worktable", ObjectType::Worktable},
+        {"teapoy", ObjectType::Teapoy}, {"airconditioner", ObjectType::Airconditioner},
+        {"washmachine", ObjectType::Washmachine}
     };
     auto it = m.find(s);
     return it != m.end() ? it->second : ObjectType::Unknown;

@@ -75,6 +75,13 @@ ObjectType EnvironmentManager::str_to_type(const std::string& s) {
     else if (s == "microwave") return ObjectType::Microwave;
     else if (s == "sofa") return ObjectType::Sofa;
     else if (s == "table") return ObjectType::Table;
+    else if (s == "plant") return ObjectType::Plant;
+    else if (s == "couch") return ObjectType::Couch;
+    else if (s == "workspace") return ObjectType::Workspace;
+    else if (s == "worktable") return ObjectType::Worktable;
+    else if (s == "teapoy") return ObjectType::Teapoy;
+    else if (s == "airconditioner") return ObjectType::Airconditioner;
+    else if (s == "washmachine") return ObjectType::Washmachine;
     return ObjectType::Unknown;
 }
 

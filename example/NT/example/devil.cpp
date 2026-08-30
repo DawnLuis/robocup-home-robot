@@ -46,8 +46,15 @@ void Devil::Plan()
     env.print_all();
 
     //string taskDes = GetTaskDes(); // 获取任务描述
-    std::string natural_lang = GetTaskDes(); // 获取自然语言任务描述
-    std::string  taskDes= SimpleNLU().parse(natural_lang);
+    std::string natural_lang = GetTaskDes(); // 获取任务描述（IT模式为结构化:ins指令，NT模式为英文）
+    std::string taskDes;
+    // 已以 (:ins 开头说明平台已给出结构化指令（IT模式），无需NLU转换
+    if (natural_lang.find("(:ins") != std::string::npos) {
+        taskDes = natural_lang;
+    } else {
+        // NT模式：自然语言 → 结构化指令
+        taskDes = SimpleNLU().parse(natural_lang);
+    }
     cout << "=== 当前任务描述 (Task Description) ===" << endl;
     cout << natural_lang << endl;
     cout << "转换为结构化任务描述:" << endl;
@@ -988,11 +995,43 @@ bool Devil::execute_takeout(EnvironmentManager& env, int small_obj_id, int conta
         return false;
     }
 
-    // 检查容器状态
+    // 移动到容器所在位置
+    int container_loc = env.get_object_location(container_id);
+    if (container_loc == -1) {
+        cout << "  错误: 无法确定容器 #" << container_id << " 位置。" << endl;
+        return false;
+    }
+    int robot_loc = env.get_robot_location();
+    if (robot_loc != container_loc) {
+        cout << "  移动机器人到容器位置 " << container_loc << endl;
+        if (!Move(container_loc)) {
+            cout << "  移动失败！" << endl;
+            return false;
+        }
+        env.update_after_move(container_loc);
+    }
+
+    // 确保空手（Open/TakeOut 都要求手爪为空）
+    if (env.is_holding()) {
+        int held_id = env.get_held_object();
+        cout << "  机器人手持物体 #" << held_id << "，先放下。" << endl;
+        if (!PutDown(held_id)) {
+            cout << "  放下物体失败！" << endl;
+            return false;
+        }
+        env.update_after_putdown(held_id);
+    }
+
+    // 检查容器状态，未打开则先开门
     ContainerState state = env.get_container_state(container_id);
     if (state != ContainerState::Opened) {
-        cout << "  错误: 容器 #" << container_id << " 未打开！当前状态: " << (state == ContainerState::Closed ? "closed" : "unknown") << endl;
-        return false;
+        cout << "  容器 #" << container_id << " 未打开 ("
+             << (state == ContainerState::Closed ? "closed" : "unknown") << ")，先开门。" << endl;
+        if (!Open(container_id)) {
+            cout << "  打开容器失败！" << endl;
+            return false;
+        }
+        env.update_after_open(container_id);
     }
 
     bool success = TakeOut(small_obj_id, container_id);
