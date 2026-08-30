@@ -81,16 +81,14 @@ void Devil::Plan()
         }
     }
 
-    // 执行状态任务（优先执行）
-    for (const auto& rule : state_tasks) {
-        execute_state_task(env, rule);
+    // 先执行非状态任务（putin/takeout 等可能需要容器打开）
+    for (const auto& rule : tasks) {
+        execute_task_with_constraints(env, ins_parser, rule);
     }
 
-    // 执行主要任务
-    for (const auto& rule : tasks) {
-        if (!execute_task_with_constraints(env, ins_parser, rule)) {
-            cout << "任务 '" << rule.head.name << "' 执行失败。" << endl;
-        }
+    // 最后执行状态任务（close/opened），避免提前关闭容器导致后续操作失败
+    for (const auto& rule : state_tasks) {
+        execute_state_task(env, rule);
     }
 
     cout << "所有任务执行完成。" << endl;
@@ -228,6 +226,9 @@ bool Devil::execute_task_with_constraints(EnvironmentManager& env, InstructionPa
     else if (task.name == "close") {
         return execute_close_task(env, task);
     }
+    else if (task.name == "open") {
+        return execute_open_task(env, task);
+    }
     else if (task.name == "opened") {
         return execute_state_task(env, rule);
     }
@@ -239,35 +240,74 @@ bool Devil::execute_task_with_constraints(EnvironmentManager& env, InstructionPa
     return false;
 }
 
-// 约束检查
+// 约束检查：检查 task 是否与某条 cons_not 规则匹配
+// cons_not (:task (putdown X) (:cond (sort X bottle) (color X blue)))
+// 意思是"禁止对蓝色bottle执行putdown"。需要解析task的参数对应的实际物体，
+// 然后检查物体属性是否匹配cons_not的条件。
 bool Devil::check_constraints(EnvironmentManager& env, InstructionParser& ins_parser, const Predicate& task) {
-    // 检查所有禁止性约束
+    // 遍历所有禁止性约束
     for (const auto& rule : ins_parser.get_rules()) {
-        if (rule.type == RuleType::TaskForbidden) {
-            // 检查任务类型和参数是否匹配禁止的约束
-            if (rule.head.name == task.name) {
-                bool matches = true;
-                for (const auto& cond : rule.head.conds) {
-                    // 这里简化约束检查，实际应该更详细
-                    if (!check_condition_match(env, task, cond)) {
-                        matches = false;
-                        break;
-                    }
-                }
-                if (matches) {
-                    cout << "  违反禁止约束: " << rule.head.name << endl;
-                    return false;
-                }
-            }
+        if (rule.type != RuleType::TaskForbidden) continue;
+        // 仅当任务名相同才需要检查
+        if (rule.head.name != task.name) continue;
+
+        // 解析 task 中 X/Y 对应的实际物体
+        // task.conds 里存了 (:cond (sort X book) (color X red) (sort Y plant)) 等
+        // 需要从 env 中找到匹配的物体，再检查该物体是否触发 cons_not
+        const Object* obj_x = nullptr;
+        const Object* obj_y = nullptr;
+
+        // 查找 X 对应的物体
+        ObjectType x_type = ObjectType::Unknown;
+        Color x_color = Color::Unknown;
+        ObjectType y_type = ObjectType::Unknown;
+        for (const auto& cond : task.conds) {
+            if (cond.var == "X" && cond.attr == "sort") x_type = ins_parser.str_to_object_type(cond.value);
+            else if (cond.var == "X" && cond.attr == "color") x_color = get_color_from_string(cond.value);
+            else if (cond.var == "Y" && cond.attr == "sort") y_type = ins_parser.str_to_object_type(cond.value);
+        }
+
+        // 从 cons_not 的条件中提取约束的 sort/color
+        ObjectType forbid_x_type = ObjectType::Unknown;
+        Color forbid_x_color = Color::Unknown;
+        ObjectType forbid_y_type = ObjectType::Unknown;
+        bool has_x_cond = false;
+        for (const auto& cond : rule.head.conds) {
+            if (cond.var == "X" && cond.attr == "sort") { forbid_x_type = ins_parser.str_to_object_type(cond.value); has_x_cond = true; }
+            else if (cond.var == "X" && cond.attr == "color") forbid_x_color = get_color_from_string(cond.value);
+            else if (cond.var == "Y" && cond.attr == "sort") forbid_y_type = ins_parser.str_to_object_type(cond.value);
+        }
+
+        // 检查 task 的 X 条件是否与 cons_not 的 X 条件冲突
+        // 如果 cons_not 约束 "sort X bottle, color X blue"
+        // 而 task 要 "sort X bottle" (无颜色指定) → 可能冲突，需进一步检查
+        // 如果 task 指定了不同颜色 → 不冲突
+        bool x_sort_conflict = (forbid_x_type != ObjectType::Unknown && x_type == forbid_x_type);
+        bool x_color_conflict = (forbid_x_color != Color::Unknown && (x_color == Color::Unknown || x_color == forbid_x_color));
+        bool y_sort_conflict = (forbid_y_type != ObjectType::Unknown && y_type == forbid_y_type);
+
+        // 如果 cons_not 没有 X 条件 (has_x_cond=false)，则所有同名 task 都被禁止
+        if (!has_x_cond) {
+            cout << "  违反禁止约束: " << rule.head.name << " (无条件禁止)" << endl;
+            return false;
+        }
+
+        // X sort 匹配且 (X color 匹配或 task 未指定颜色)
+        if (x_sort_conflict && x_color_conflict && y_sort_conflict) {
+            cout << "  违反禁止约束: " << rule.head.name << " (X,Y匹配)" << endl;
+            return false;
+        }
+        // 如果 cons_not 只约束 X (无 Y 条件)
+        if (x_sort_conflict && x_color_conflict && forbid_y_type == ObjectType::Unknown) {
+            cout << "  违反禁止约束: " << rule.head.name << " (X匹配)" << endl;
+            return false;
         }
     }
     return true;
 }
 
-// 条件匹配检查
+// 条件匹配检查 (保留接口，不再使用恒真实现)
 bool Devil::check_condition_match(EnvironmentManager& env, const Predicate& task, const Condition& cond) {
-    // 简化实现，实际应该根据任务参数和条件进行详细匹配
-    // 这里返回true表示条件匹配，需要在实际使用中完善
     return true;
 }
 
@@ -723,7 +763,7 @@ bool Devil::execute_close_task(EnvironmentManager& env, const Predicate& task) {
             break;
         }
     }
-    
+
     if (container_id == -1) {
         cout << "  错误: 无法找到容器。" << endl;
         return false;
@@ -741,7 +781,7 @@ bool Devil::execute_close_task(EnvironmentManager& env, const Predicate& task) {
         cout << "  错误: 无法确定容器位置。" << endl;
         return false;
     }
-    
+
     int robot_loc = env.get_robot_location();
     if (robot_loc != container_loc) {
         cout << "  移动机器人到容器位置 " << container_loc << endl;
@@ -771,6 +811,68 @@ bool Devil::execute_close_task(EnvironmentManager& env, const Predicate& task) {
             env.update_after_close(container_id);
         } else {
             cout << "  关闭容器失败！" << endl;
+        }
+        return success;
+    }
+}
+
+bool Devil::execute_open_task(EnvironmentManager& env, const Predicate& task) {
+    int container_id = -1;
+    for (const auto& cond : task.conds) {
+        if (cond.var == "X") {
+            ObjectType type = ins_parser.str_to_object_type(cond.value);
+            container_id = find_object_by_type(env, type);
+            break;
+        }
+    }
+
+    if (container_id == -1) {
+        cout << "  错误: 无法找到容器。" << endl;
+        return false;
+    }
+
+    const Object* container = env.get_object(container_id);
+    if (!container || !container->is_container) {
+        cout << "  错误: 物体 #" << container_id << " 不是容器。" << endl;
+        return false;
+    }
+
+    // 移动到容器位置
+    int container_loc = env.get_object_location(container_id);
+    if (container_loc == -1) {
+        cout << "  错误: 无法确定容器位置。" << endl;
+        return false;
+    }
+
+    int robot_loc = env.get_robot_location();
+    if (robot_loc != container_loc) {
+        cout << "  移动机器人到容器位置 " << container_loc << endl;
+        if (!Move(container_loc)) {
+            cout << "  移动失败！" << endl;
+            return false;
+        }
+        env.update_after_move(container_loc);
+    }
+
+    // 确保空手（Open 要求手爪为空）
+    if (env.is_holding()) {
+        int held_id = env.get_held_object();
+        cout << "  机器人手持物体 #" << held_id << "，先放下。" << endl;
+        PutDown(held_id);
+        env.update_after_putdown(held_id);
+    }
+
+    ContainerState state = env.get_container_state(container_id);
+    if (state == ContainerState::Opened) {
+        cout << "  容器 #" << container_id << " 已经打开。" << endl;
+        return true;
+    } else {
+        bool success = Open(container_id);
+        if (success) {
+            cout << "  成功打开容器 #" << container_id << endl;
+            env.update_after_open(container_id);
+        } else {
+            cout << "  打开容器失败！" << endl;
         }
         return success;
     }

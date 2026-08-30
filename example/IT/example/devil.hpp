@@ -40,6 +40,7 @@ namespace _home
         bool execute_takeout_task(EnvironmentManager& env, const Predicate& task);
         Color get_color_from_string(const std::string& color_str) const;
         bool execute_close_task(EnvironmentManager& env, const Predicate& task);
+        bool execute_open_task(EnvironmentManager& env, const Predicate& task);
     
     int find_object_by_conditions(EnvironmentManager& env, ObjectType type, Color color = Color::Unknown);
     ObjectType str_to_object_type(const std::string& s) const;
