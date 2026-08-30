@@ -189,7 +189,7 @@ std::string SimpleNLU::parse(const std::string& input) {
                 is_task_origin = false;
             } else {
                 for (const auto& rel : relation_map) {
-                    if (contains(lower_sent, rel.first)) {
+                    if (word_contains(lower_sent, rel.first)) {
                         predicate_name = rel.second;
                         break;
                     }
@@ -236,7 +236,7 @@ std::string SimpleNLU::parse(const std::string& input) {
                 predicate_args = {"X"};
             } else {
                 for (const auto& rel : relation_map) {
-                    if (contains(lower_sent, rel.first)) {
+                    if (word_contains(lower_sent, rel.first)) {
                         predicate_name = rel.second;
                         break;
                     }
@@ -332,7 +332,7 @@ std::string SimpleNLU::parse(const std::string& input) {
                 predicate_args = {"X"};
             } else {
                 for (const auto& rel : relation_map) {
-                    if (contains(lower_sent, rel.first)) {
+                    if (word_contains(lower_sent, rel.first)) {
                         predicate_name = rel.second;
                         break;
                     }
@@ -382,6 +382,34 @@ std::string SimpleNLU::parse(const std::string& input) {
                 cond_y.attr = "sort";
                 cond_y.value = effective_objects[1];
                 conditions.push_back(cond_y);
+            }
+        }
+
+        // === 容器 type 条件 ===
+        // 容器任务 putin/takeout 的 Y、open/close 的 X 若是容器类物体，补 (type X/Y container)
+        // 出题要求容器类任务必须带 (type * container)
+        static const std::set<std::string> container_sorts = {
+            "closet", "cupboard", "refrigerator", "microwave", "washmachine"
+        };
+        if (!effective_objects.empty() &&
+            (predicate_name == "open" || predicate_name == "close")) {
+            if (container_sorts.count(effective_objects[0])) {
+                Condition type_cond;
+                type_cond.var = "X";
+                type_cond.attr = "type";
+                type_cond.value = "container";
+                conditions.push_back(type_cond);
+            }
+        }
+        if (effective_objects.size() > 1 && predicate_args.size() > 1 &&
+            (predicate_name == "putin" || predicate_name == "takeout" ||
+             predicate_name == "inside")) {
+            if (container_sorts.count(effective_objects[1])) {
+                Condition type_cond;
+                type_cond.var = "Y";
+                type_cond.attr = "type";
+                type_cond.value = "container";
+                conditions.push_back(type_cond);
             }
         }
 
