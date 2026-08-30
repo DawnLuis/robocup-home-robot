@@ -1,65 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
 <test>
-<env mis="off" err="off" ans="off">
+<env mis="on" err="off" ans="off">
     <info>
-    (hold 0) (plate 18) (at 0 10)
-    (sort 1 human) (size 1 big) (at 1 1)
-    (sort 2 bed) (size 2 big) (at 2 2)
-    (sort 3 desk) (size 3 big) (at 3 3)
-    (sort 4 chair) (size 4 big) (at 4 4)
-    (sort 5 refrigerator) (size 5 big) (at 5 5) (type 5 container)
-    (sort 6 closet) (size 6 big) (at 6 6) (type 6 container) (closed 6)
-    (sort 7 television) (size 7 big) (at 7 7)
-    (sort 8 microwave) (size 8 big) (at 8 8) (type 8 container)
-    (sort 9 teapoy) (size 9 big) (at 9 9) 
-    (sort 10 couch) (size 10 big) (at 10 10) 
-    (sort 11 sofa) (size 11 big) (at 11 11)
-    (sort 12 cupboard) (size 12 big) (at 12 12) (type 12 container) (opened 12)
-    (sort 13 airconditioner) (size 13 big) (at 13 13)
-    (sort 14 washmachine) (size 14 big) (at 14 14) (type 14 container) (opened 14)
-    (sort 15 book) (size 15 small) (color 15 yellow) 
-    (sort 16 book) (size 16 small) (color 16 green)
-    (sort 17 book) (size 17 small) (color 17 white) 
-    (sort 18 bottle) (size 18 small) (color 18 green) 
-    (sort 19 bottle) (size 19 small) (color 19 blue)
-    (sort 20 bottle) (size 20 small) (color 20 yellow) (at 20 3)  
-    (sort 21 cup) (size 21 small) (color 21 white) 
-    (sort 22 remotecontrol) (size 22 small) (color 22 black)
-    (sort 23 can) (size 23 small) (at 23 4)
-    (sort 24 can) (size 24 small) (inside 24 6)
-    (sort 25 remotecontrol) (size 25 small) (color 25 white)
+    (hold 0) (plate 0) (at 0 5)
+(sort 1 human) (size 1 big) (at 1 1)
+(sort 2 closet) (size 2 big) (type 2 container) (closed 2) (at 2 2)
+(sort 3 microwave) (size 3 big) (type 3 container) (opened 3) (at 3 3)
+(sort 4 refrigerator) (size 4 big) (type 4 container) (closed 4) (at 4 4)
+(sort 5 worktable) (size 5 big) (at 5 5)
+(sort 6 sofa) (size 6 big) (at 6 6)
+(sort 7 plant) (size 7 big) (at 7 7)
+(sort 8 table) (size 8 big) (at 8 8)
+(sort 9 bottle) (size 9 small) (color 9 black) (at 9 9)
+(sort 10 can) (size 10 small) (color 10 red) (at 10 10)
+(sort 11 book) (size 11 small) (color 11 green) (at 11 11)
     </info>
     <mis>
-    (inside 15 14) (inside 19 5) (at 16 2) 
     </mis>
     <err>
-        <r>(inside 17 8) (at 21 1) (at 22 14)</r>
-        <w>(at 17 7) (at 21 9) (at 22 8)</w>
+        <r></r>
+        <w></w>
     </err>
     <extra>
-    (closed 5) (opened 8) (inside 25 14)
     </extra>
 </env>
 <instr>
 (:ins
-    (:info (closed X) (:cond (sort X refrigerator)))
-    (:info (opened X) (:cond (sort X microwave)))
-    (:info (inside X Y) (:cond (sort X remotecontrol) (color X white) (sort Y washmachine)))
-    (:task (puton X Y) (:cond (sort X can) (sort Y bed)))
-    (:task (putin X Y) (:cond (sort X book) (color X white) (sort Y cupboard)))
-    (:task (takeout X Y) (:cond (sort X remotecontrol) (color X white) (sort Y washmachine)))
-    (:task (putin X Y) (:cond (sort X remotecontrol) (color X black) (sort Y cupboard)))
-    (:task (puton X Y) (:cond (sort X book) (color X green) (sort Y desk)))
+    (:task (open X) (:cond (sort X closet) (type X container)))
+    (:task (close X) (:cond (sort X microwave) (type X container)))
+    (:task (putin X Y) (:cond (sort X bottle) (color X black) (sort Y closet) (type Y container)))
+    (:task (puton X Y) (:cond (sort X can) (color X red) (sort Y worktable)))
+    (:cons_notnot (:info (on X Y) (:cond (sort X book) (color X green) (sort Y sofa))))
 )
 </instr>
 <nl>
-The refrigerator is closed.
-The microwave is opened.
-The white remotecontrol which is white is in the washmachine.
-Put the can on the bed.
-Put the white book in the cupboard.
-Take out the white remotecontrol from washmachine.
-Put the remotecontrol which is black in the cupboard.
-Put the green book on desk.
+Open the closet.
+Close the microwave.
+Put the black bottle in the closet.
+Put the red can on the worktable.
+There must be a green book on the sofa.
 </nl>
 </test>
