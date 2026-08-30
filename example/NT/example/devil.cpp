@@ -72,8 +72,9 @@ void Devil::Plan()
     
     for (const auto& rule : ins_parser.get_rules()) {
         if (rule.type == RuleType::TaskAllowed) {
-            // 将状态任务分开处理
-            if (rule.head.name == "opened" || rule.head.name == "closed") {
+            // 将状态任务分开处理（兼容动词open/close和形容词opened/closed）
+            if (rule.head.name == "opened" || rule.head.name == "closed" ||
+                rule.head.name == "open" || rule.head.name == "close") {
                 state_tasks.push_back(rule);
             } else {
                 tasks.push_back(rule);
@@ -150,7 +151,7 @@ bool Devil::execute_state_task(EnvironmentManager& env, const Rule& rule) {
     }
 
     bool success = false;
-    if (task.name == "opened") {
+    if (task.name == "opened" || task.name == "open") {
         ContainerState state = env.get_container_state(container_id);
         if (state == ContainerState::Opened) {
             cout << "  容器 #" << container_id << " 已经打开。" << endl;
@@ -165,7 +166,7 @@ bool Devil::execute_state_task(EnvironmentManager& env, const Rule& rule) {
             }
         }
     }
-    else if (task.name == "closed") {
+    else if (task.name == "closed" || task.name == "close") {
         ContainerState state = env.get_container_state(container_id);
         if (state == ContainerState::Closed) {
             cout << "  容器 #" << container_id << " 已经关闭。" << endl;
