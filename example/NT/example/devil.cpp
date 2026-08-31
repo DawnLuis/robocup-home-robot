@@ -882,27 +882,34 @@ bool Devil::execute_open_task(EnvironmentManager& env, const Predicate& task) {
 // 改进的物体查找函数 - 修复颜色映射问题
 int Devil::find_object_by_conditions(EnvironmentManager& env, ObjectType type, Color color) {
     cout << "  查找物体: type=" << static_cast<int>(type) << ", color=" << static_cast<int>(color) << endl;
-    
+
+    // 第一遍: 优先找"可自由拿起"的物体(不在盘上/容器中/未被手持)
+    // ★ 避免误选盘上物体(拿它会破坏 plate 约束)或容器内物体
     for (const auto& pair : env.get_objects()) {
         const Object& obj = pair.second;
-        if (obj.id == 0) continue; // 跳过机器人
-        
-        // 跳过机器人手持的物体（除非我们就是要找手持的物体）
-        if (obj.held_by_robot && obj.id != env.get_held_object()) continue;
-        
-        cout << "    检查物体 #" << obj.id << ": type=" << static_cast<int>(obj.type) 
-             << ", color=" << static_cast<int>(obj.color) 
-             << ", inside=" << (obj.valid_inside ? std::to_string(obj.inside) : "N/A")
-             << ", held=" << (obj.held_by_robot ? "yes" : "no") << endl;
-        
-        // 类型匹配检查
+        if (obj.id == 0) continue;
+        if (obj.held_by_robot) continue;
+        if (obj.on_plate) continue;       // 盘上: 留给第二遍
+        if (obj.valid_inside) continue;   // 容器内: 留给第二遍
+
         bool type_match = (obj.type == type);
-        
-        // 颜色匹配检查
         bool color_match = (color == Color::Unknown || obj.color == color);
-        
         if (type_match && color_match) {
-            cout << "    找到匹配物体 #" << obj.id << endl;
+            cout << "    第一遍找到可自由拿起物体 #" << obj.id << endl;
+            return obj.id;
+        }
+    }
+
+    // 第二遍 fallback: 该类型物体都在盘上/容器中, 只能选盘上/容器内的
+    for (const auto& pair : env.get_objects()) {
+        const Object& obj = pair.second;
+        if (obj.id == 0) continue;
+        if (obj.held_by_robot) continue;
+
+        bool type_match = (obj.type == type);
+        bool color_match = (color == Color::Unknown || obj.color == color);
+        if (type_match && color_match) {
+            cout << "    第二遍找到物体 #" << obj.id << " (盘上/容器内)" << endl;
             return obj.id;
         }
     }
@@ -976,6 +983,32 @@ bool Devil::execute_pickup(EnvironmentManager& env, int obj_id) {
             cout << "  放下物体失败！" << endl;
             return false;
         }
+    }
+
+    // ★ 物体在盘子上: 不能 PickUp(evaluate.lp 41行非法), 必须 FromPlate
+    if (obj->on_plate) {
+        cout << "  物体 #" << obj_id << " 在盘子上，使用 FromPlate" << endl;
+        // 盘子在机器人位置, 若手持先放下
+        if (env.is_holding()) {
+            int held_id = env.get_held_object();
+            cout << "  机器人已持物 #" << held_id << "，执行 PutDown" << endl;
+            bool putdown_success = PutDown(held_id);
+            if (putdown_success) {
+                env.update_after_putdown(held_id);
+            } else {
+                cout << "  放下物体失败！" << endl;
+                return false;
+            }
+        }
+        // 确保在盘子旁(机器人位置)
+        bool success = FromPlate(obj_id);
+        if (success) {
+            env.update_after_pickup(obj_id);
+            cout << "  成功从盘子拿起物体 #" << obj_id << endl;
+        } else {
+            cout << "  FromPlate 失败！" << endl;
+        }
+        return success;
     }
 
     // 检查物体是否在容器中

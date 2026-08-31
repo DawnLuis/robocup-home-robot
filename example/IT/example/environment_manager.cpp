@@ -346,6 +346,15 @@ if (cleaned.find("(:domain") == 0) {
         }
     }
 
+    // ★ 修复: plate 谓词在 domain 开头, 早于 sort 定义, parse_predicate 时对象尚未创建,
+    // on_plate 未设置。此处解析完全结束后统一补设。
+    for (int pid : plate_objects) {
+        auto it = objects.find(pid);
+        if (it != objects.end()) {
+            it->second.on_plate = true;
+        }
+    }
+
     // std::cout << "[STATE] After parsing: held_object = " << held_object << "\n";
 }
 
