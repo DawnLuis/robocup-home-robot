@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test>
+<env mis="on" err="on" ans="on">
+    <info>
+    (hold 0) (plate 0) (at 0 5)
+(sort 1 human) (size 1 big) (at 1 1)
+(sort 2 cupboard) (size 2 big) (type 2 container) (closed 2) (at 2 2)
+(sort 3 closet) (size 3 big) (type 3 container) (closed 3) (at 3 3)
+(sort 4 desk) (size 4 big) (at 4 4)
+(sort 5 bed) (size 5 big) (at 5 5)
+(sort 6 table) (size 6 big) (at 6 6)
+(sort 7 book) (size 7 small) (color 7 green)
+(sort 8 can) (size 8 small) (color 8 white)
+(sort 9 remotecontrol) (size 9 small) (color 9 blue) (at 9 6)
+    </info>
+    <mis>
+    (at 7 4)
+    </mis>
+    <err>
+        <r>(inside 8 2)</r>
+        <w>(inside 8 3)</w>
+    </err>
+    <extra>
+    </extra>
+</env>
+<instr>
+(:ins
+    (:task (puton X Y) (:cond (sort X book) (color X green) (sort Y desk)))
+    (:task (putin X Y) (:cond (sort X can) (color X white) (sort Y closet) (type Y container)))
+    (:task (goto X) (:cond (sort X table)))
+    (:task (pickup X) (:cond (sort X remotecontrol) (color X blue)))
+    (:cons_not (:task (puton X Y) (:cond (sort X book) (color X green) (sort Y bed))))
+)
+</instr>
+<nl>
+Put the green book on the desk.
+Put the white can in the closet.
+Go to the table.
+Pick up the blue remotecontrol.
+Do not put the green book on the bed.
+</nl>
+</test>

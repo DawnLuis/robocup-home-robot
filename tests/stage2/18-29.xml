@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test>
+<env mis="on" err="on" ans="on">
+    <info>
+    (hold 0) (plate 0) (at 0 5)
+(sort 1 human) (size 1 big) (at 1 1)
+(sort 2 cupboard) (size 2 big) (type 2 container) (closed 2) (at 2 2)
+(sort 3 refrigerator) (size 3 big) (type 3 container) (opened 3) (at 3 3)
+(sort 4 microwave) (size 4 big) (type 4 container) (closed 4) (at 4 4)
+(sort 5 desk) (size 5 big) (at 5 5)
+(sort 6 chair) (size 6 big) (at 6 6)
+(sort 7 sofa) (size 7 big) (at 7 7)
+(sort 8 bed) (size 8 big) (at 8 8)
+(sort 9 book) (size 9 small) (color 9 yellow)
+(sort 10 remotecontrol) (size 10 small) (color 10 green)
+(sort 11 cup) (size 11 small) (color 11 red) (at 11 8)
+    </info>
+    <mis>
+    (at 9 5)
+    </mis>
+    <err>
+        <r>(inside 10 2)</r>
+        <w>(inside 10 3)</w>
+    </err>
+    <extra>
+    </extra>
+</env>
+<instr>
+(:ins
+    (:task (close X) (:cond (sort X cupboard) (type X container)))
+    (:task (putin X Y) (:cond (sort X book) (color X yellow) (sort Y cupboard) (type Y container)))
+    (:task (puton X Y) (:cond (sort X remotecontrol) (color X green) (sort Y desk)))
+    (:cons_notnot (:info (on X Y) (:cond (sort X cup) (color X red) (sort Y chair))))
+    (:cons_not (:task (putin X Y) (:cond (sort X book) (color X yellow) (sort Y refrigerator) (type Y container))))
+)
+</instr>
+<nl>
+Close the cupboard.
+Put the yellow book in the cupboard.
+Put the green remotecontrol on the desk.
+There must be a red cup on the chair.
+Do not put the yellow book in the refrigerator.
+</nl>
+</test>

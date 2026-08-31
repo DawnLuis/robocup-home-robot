@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test>
+<env mis="on" err="on" ans="on">
+    <info>
+    (hold 0) (plate 0) (at 0 5)
+(sort 1 human) (size 1 big) (at 1 1)
+(sort 2 closet) (size 2 big) (type 2 container) (closed 2) (at 2 2)
+(sort 3 microwave) (size 3 big) (type 3 container) (opened 3) (at 3 3)
+(sort 4 refrigerator) (size 4 big) (type 4 container) (closed 4) (at 4 4)
+(sort 5 worktable) (size 5 big) (at 5 5)
+(sort 6 sofa) (size 6 big) (at 6 6)
+(sort 7 plant) (size 7 big) (at 7 7)
+(sort 8 table) (size 8 big) (at 8 8)
+(sort 9 bottle) (size 9 small) (color 9 black)
+(sort 10 can) (size 10 small) (color 10 red)
+(sort 11 book) (size 11 small) (color 11 green) (at 11 8)
+    </info>
+    <mis>
+    (at 9 5)
+    </mis>
+    <err>
+        <r>(inside 10 2)</r>
+        <w>(inside 10 3)</w>
+    </err>
+    <extra>
+    </extra>
+</env>
+<instr>
+(:ins
+    (:task (open X) (:cond (sort X closet) (type X container)))
+    (:task (close X) (:cond (sort X microwave) (type X container)))
+    (:task (putin X Y) (:cond (sort X bottle) (color X black) (sort Y closet) (type Y container)))
+    (:task (puton X Y) (:cond (sort X can) (color X red) (sort Y worktable)))
+    (:cons_notnot (:info (on X Y) (:cond (sort X book) (color X green) (sort Y sofa))))
+)
+</instr>
+<nl>
+Open the closet.
+Close the microwave.
+Put the black bottle in the closet.
+Put the red can on the worktable.
+There must be a green book on the sofa.
+</nl>
+</test>

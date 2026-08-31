@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test>
+<env mis="on" err="on" ans="on">
+    <info>
+    (hold 0) (plate 0) (at 0 5)
+(sort 1 human) (size 1 big) (at 1 1)
+(sort 2 refrigerator) (size 2 big) (type 2 container) (opened 2) (at 2 2)
+(sort 3 closet) (size 3 big) (type 3 container) (closed 3) (at 3 3)
+(sort 4 table) (size 4 big) (at 4 4)
+(sort 5 chair) (size 5 big) (at 5 5)
+(sort 6 couch) (size 6 big) (at 6 6)
+(sort 7 bed) (size 7 big) (at 7 7)
+(sort 8 bottle) (size 8 small) (color 8 white)
+(sort 9 book) (size 9 small) (color 9 yellow)
+(sort 10 remotecontrol) (size 10 small) (color 10 green) (at 10 7)
+    </info>
+    <mis>
+    (inside 8 2)
+    </mis>
+    <err>
+        <r>(inside 9 2)</r>
+        <w>(inside 9 3)</w>
+    </err>
+    <extra>
+    </extra>
+</env>
+<instr>
+(:ins
+    (:info (on X Y) (:cond (sort X bottle) (color X white) (sort Y table)))
+    (:task (takeout X Y) (:cond (sort X remotecontrol) (color X green) (sort Y refrigerator) (type Y container)))
+    (:task (puton X Y) (:cond (sort X book) (color X yellow) (sort Y chair)))
+    (:cons_notnot (:info (inside X Y) (:cond (sort X book) (color X yellow) (sort Y closet) (type Y container))))
+    (:cons_not (:task (puton X Y) (:cond (sort X bottle) (color X white) (sort Y couch))))
+)
+</instr>
+<nl>
+The white bottle is on the table.
+Take out the green remotecontrol from the refrigerator.
+Put the yellow book on the chair.
+There must be a yellow book in the closet.
+Do not put the white bottle on the couch.
+</nl>
+</test>

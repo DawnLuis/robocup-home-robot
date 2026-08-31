@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test>
+<env mis="on" err="on" ans="on">
+    <info>
+    (hold 0) (plate 0) (at 0 5)
+(sort 1 human) (size 1 big) (at 1 1)
+(sort 2 microwave) (size 2 big) (type 2 container) (opened 2) (at 2 2)
+(sort 3 closet) (size 3 big) (type 3 container) (closed 3) (at 3 3)
+(sort 4 bed) (size 4 big) (at 4 4)
+(sort 5 worktable) (size 5 big) (at 5 5)
+(sort 6 book) (size 6 small) (color 6 black)
+(sort 7 cup) (size 7 small) (color 7 yellow)
+(sort 8 bottle) (size 8 small) (color 8 white) (at 8 5)
+    </info>
+    <mis>
+    (inside 6 2)
+    </mis>
+    <err>
+        <r>(inside 7 2)</r>
+        <w>(inside 7 3)</w>
+    </err>
+    <extra>
+    </extra>
+</env>
+<instr>
+(:ins
+    (:task (open X) (:cond (sort X closet) (type X container)))
+    (:task (close X) (:cond (sort X microwave) (type X container)))
+    (:task (putin X Y) (:cond (sort X cup) (color X yellow) (sort Y closet) (type Y container)))
+    (:task (give human X) (:cond (sort X book) (color X black)))
+    (:cons_not (:task (putdown X) (:cond (sort X bottle) (color X white))))
+)
+</instr>
+<nl>
+Open the closet.
+Close the microwave.
+Put the yellow cup in the closet.
+Give the black book to the human.
+Do not put down the white bottle.
+</nl>
+</test>

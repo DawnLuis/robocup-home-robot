@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test>
+<env mis="on" err="on" ans="on">
+    <info>
+    (hold 0) (plate 0) (at 0 5)
+(sort 1 human) (size 1 big) (at 1 1)
+(sort 2 microwave) (size 2 big) (type 2 container) (closed 2) (at 2 2)
+(sort 3 closet) (size 3 big) (type 3 container) (opened 3) (at 3 3)
+(sort 4 cupboard) (size 4 big) (type 4 container) (closed 4) (at 4 4)
+(sort 5 worktable) (size 5 big) (at 5 5)
+(sort 6 sofa) (size 6 big) (at 6 6)
+(sort 7 teapoy) (size 7 big) (at 7 7)
+(sort 8 can) (size 8 small) (color 8 blue)
+(sort 9 cup) (size 9 small) (color 9 black)
+(sort 10 bottle) (size 10 small) (color 10 white) (at 10 7)
+    </info>
+    <mis>
+    (inside 8 2)
+    </mis>
+    <err>
+        <r>(inside 9 2)</r>
+        <w>(inside 9 3)</w>
+    </err>
+    <extra>
+    </extra>
+</env>
+<instr>
+(:ins
+    (:task (open X) (:cond (sort X microwave) (type X container)))
+    (:task (putin X Y) (:cond (sort X can) (color X blue) (sort Y microwave) (type Y container)))
+    (:task (puton X Y) (:cond (sort X cup) (color X black) (sort Y worktable)))
+    (:task (give human X) (:cond (sort X bottle) (color X white)))
+    (:cons_not (:task (putin X Y) (:cond (sort X can) (color X blue) (sort Y closet) (type Y container))))
+)
+</instr>
+<nl>
+Open the microwave.
+Put the blue can in the microwave.
+Put the black cup on the worktable.
+Give the white bottle to the human.
+Do not put the blue can in the closet.
+</nl>
+</test>
