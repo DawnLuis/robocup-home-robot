@@ -44,6 +44,8 @@ namespace _home
     
     int find_object_by_conditions(EnvironmentManager& env, ObjectType type, Color color = Color::Unknown);
     bool is_object_protected(EnvironmentManager& env, int obj_id, ObjectType type);
+    int try_held_object(EnvironmentManager& env, ObjectType type, Color color = Color::Unknown);
+    bool is_reserved_by_specific_task(ObjectType type, Color col);
     ObjectType str_to_object_type(const std::string& s) const;
         
         bool execute_pickup(EnvironmentManager& env, int obj_id);

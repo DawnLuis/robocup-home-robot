@@ -338,6 +338,12 @@ bool Devil::execute_pickup_task(EnvironmentManager& env, const Predicate& task) 
 
     // 使用组合条件查找物体
     if (x_type != ObjectType::Unknown) {
+        // ★ 若当前手持物体已满足 type+color 条件，pickup 任务已完成，直接返回
+        int held = try_held_object(env, x_type, x_color);
+        if (held != -1) {
+            cout << "    手持物体 #" << held << " 已满足条件，pickup任务无需再拿" << endl;
+            return true;
+        }
         cout << "    使用组合条件查找X: type=" << static_cast<int>(x_type) << ", color=" << static_cast<int>(x_color) << endl;
         obj_id = find_object_by_conditions(env, x_type, x_color);
     }
@@ -414,7 +420,11 @@ bool Devil::execute_puton_task(EnvironmentManager& env, const Predicate& task) {
     // 使用组合条件查找物体
     if (x_type != ObjectType::Unknown) {
         cout << "    使用组合条件查找X: type=" << static_cast<int>(x_type) << ", color=" << static_cast<int>(x_color) << endl;
-        small_obj_id = find_object_by_conditions(env, x_type, x_color);
+        // ★ 先检查当前手持物体是否已满足条件，避免无谓 PutDown+重选
+        small_obj_id = try_held_object(env, x_type, x_color);
+        if (small_obj_id == -1) {
+            small_obj_id = find_object_by_conditions(env, x_type, x_color);
+        }
     }
     
     if (y_type != ObjectType::Unknown) {
@@ -543,7 +553,11 @@ bool Devil::execute_putin_task(EnvironmentManager& env, const Predicate& task) {
     // 使用组合条件查找物体
     if (x_type != ObjectType::Unknown) {
         cout << "    使用组合条件查找X: type=" << static_cast<int>(x_type) << ", color=" << static_cast<int>(x_color) << endl;
-        obj_id = find_object_by_conditions(env, x_type, x_color);
+        // ★ 先检查当前手持物体是否已满足条件，避免无谓 PutDown+重选
+        obj_id = try_held_object(env, x_type, x_color);
+        if (obj_id == -1) {
+            obj_id = find_object_by_conditions(env, x_type, x_color);
+        }
     }
     
     if (y_type != ObjectType::Unknown) {
@@ -681,7 +695,11 @@ bool Devil::execute_give_task(EnvironmentManager& env, const Predicate& task) {
                     break;
                 }
             }
-            obj_id = find_object_by_conditions(env, type, color);
+            // ★ 先检查当前手持物体是否已满足条件，避免无谓 PutDown+重选
+            obj_id = try_held_object(env, type, color);
+            if (obj_id == -1) {
+                obj_id = find_object_by_conditions(env, type, color);
+            }
             break;
         }
     }
@@ -877,6 +895,46 @@ bool Devil::execute_open_task(EnvironmentManager& env, const Predicate& task) {
         }
         return success;
     }
+}
+
+// ★ 检查当前手持物体是否已满足 type(+color) 条件，避免无谓 PutDown+重选
+int Devil::try_held_object(EnvironmentManager& env, ObjectType type, Color color) {
+    if (!env.is_holding()) return -1;
+    int held_id = env.get_held_object();
+    const Object* obj = env.get_object(held_id);
+    if (!obj) return -1;
+    if (obj->type == type && (color == Color::Unknown || obj->color == color)) {
+        // ★ 当前任务未指定颜色(任意)时, 若该物体被另一个"明确指定颜色"的任务锁定,
+        //   则不复用(让给后续特定任务), 否则会提前占用导致后续多移动。
+        //   例: "put a book on bed"(任意书) 若复用黄书10, 而后续 "put yellow book on chair"
+        //   必须用10 → bed放了又挪到chair, 多走一趟。此时应让bed用其他书(11/12)。
+        if (color == Color::Unknown && is_reserved_by_specific_task(obj->type, obj->color)) {
+            cout << "  手持物体 #" << held_id << " 被后续特定颜色任务锁定，不复用" << endl;
+            return -1;
+        }
+        cout << "  当前手持物体 #" << held_id << " 已满足条件(type+color)，直接复用" << endl;
+        return held_id;
+    }
+    return -1;
+}
+
+// ★ 判断某物体是否被"明确指定该颜色"的任务锁定(如 put yellow book on chair)
+// 存在任意 TaskAllowed 规则, 其 X 条件同时指定了 sort==type 且 color==col
+bool Devil::is_reserved_by_specific_task(ObjectType type, Color col) {
+    for (const auto& rule : ins_parser.get_rules()) {
+        if (rule.type != RuleType::TaskAllowed) continue;
+        bool has_type = false, has_color = false;
+        Color rule_color = Color::Unknown;
+        for (const auto& cond : rule.head.conds) {
+            if (cond.var != "X") continue;
+            if (cond.attr == "sort" && ins_parser.str_to_object_type(cond.value) == type) has_type = true;
+            else if (cond.attr == "color") { has_color = true; rule_color = get_color_from_string(cond.value); }
+        }
+        if (has_type && has_color && rule_color == col) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // 改进的物体查找函数 - 修复颜色映射问题
