@@ -490,6 +490,7 @@ void EnvironmentManager::update_after_pickup(int obj_id) {
     if (it != objects.end()) {
         it->second.valid_inside = false;  // 不再在容器内
         it->second.valid_at = false;     // 不再在某个位置
+        it->second.on_plate = false;     // 拿起后不再在盘子上
         it->second.held_by_robot = true;
     }
     held_object = obj_id;
@@ -501,6 +502,8 @@ void EnvironmentManager::update_after_putdown(int obj_id) {
         it->second.at = robot_location;
         it->second.valid_at = true;
         it->second.held_by_robot = false;
+        // on_plate 不在这里重设: 放下后是否在盘上取决于放下位置,
+        // 但第一阶段放下位置非盘子时 on_plate 应为 false(已被 pickup 清除)
     }
     held_object = -1;
 }
@@ -510,6 +513,7 @@ void EnvironmentManager::update_after_puton(int obj_id, int surface_id) {
     if (it != objects.end()) {
         it->second.at = get_object_location(surface_id);  // 放在 surface 上
         it->second.valid_at = true;
+        it->second.on_plate = false;     // 放上大物体后不在盘上
         it->second.held_by_robot = false;
     }
     held_object = -1;
@@ -520,6 +524,7 @@ void EnvironmentManager::update_after_putin(int obj_id, int container_id) {
     if (it != objects.end()) {
         it->second.inside = container_id;
         it->second.valid_inside = true;
+        it->second.on_plate = false;     // 放入容器后不在盘上
         it->second.held_by_robot = false;
     }
     held_object = -1;
@@ -530,6 +535,7 @@ void EnvironmentManager::update_after_takeout(int obj_id, int container_id) {
     if (it != objects.end()) {
         it->second.inside = -1;
         it->second.valid_inside = false;
+        it->second.on_plate = false;     // 取出后不在盘上
         it->second.held_by_robot = true;
     }
     held_object = obj_id;
