@@ -1115,7 +1115,11 @@ bool Devil::execute_move(EnvironmentManager& env, int target_loc) {
     }
 
     cout << "  执行 Move 机器人到位置 " << target_loc << endl;
-    return Move(target_loc);
+    bool success = Move(target_loc);
+    if (success) {
+        env.update_after_move(target_loc);
+    }
+    return success;
 }
 
 // 执行 takeout 动作
