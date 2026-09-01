@@ -880,6 +880,34 @@ bool Devil::execute_open_task(EnvironmentManager& env, const Predicate& task) {
 }
 
 // 改进的物体查找函数 - 修复颜色映射问题
+// ★ 判断物体是否受 cons_notnot(FactRequired)约束保护
+// 若某物体 sort+color 匹配某个 FactRequired 约束的 X 条件，则该物体应留在原处，
+// 不应用作可自由移动的对象(否则会破坏约束)。例:"绿罐必须在plant"→绿罐受保护。
+bool Devil::is_object_protected(EnvironmentManager& env, int obj_id, ObjectType type) {
+    const Object* obj = env.get_object(obj_id);
+    if (!obj) return false;
+
+    for (const auto& rule : ins_parser.get_rules()) {
+        if (rule.type != RuleType::FactRequired) continue;
+
+        ObjectType req_x_type = ObjectType::Unknown;
+        Color req_x_color = Color::Unknown;
+        for (const auto& cond : rule.head.conds) {
+            if (cond.var == "X" && cond.attr == "sort") req_x_type = ins_parser.str_to_object_type(cond.value);
+            else if (cond.var == "X" && cond.attr == "color") req_x_color = get_color_from_string(cond.value);
+        }
+
+        // 约束明确指定了 X 的 sort+color 才认为锁定具体物体
+        if (req_x_type == ObjectType::Unknown || req_x_color == Color::Unknown) continue;
+        if (obj->type == req_x_type && obj->color == req_x_color) {
+            cout << "      (物体 #" << obj_id << " 受约束保护: sort=" << static_cast<int>(req_x_type)
+                 << " color=" << static_cast<int>(req_x_color) << ")" << endl;
+            return true;
+        }
+    }
+    return false;
+}
+
 int Devil::find_object_by_conditions(EnvironmentManager& env, ObjectType type, Color color) {
     cout << "  查找物体: type=" << static_cast<int>(type) << ", color=" << static_cast<int>(color) << endl;
 
@@ -891,6 +919,13 @@ int Devil::find_object_by_conditions(EnvironmentManager& env, ObjectType type, C
         if (obj.held_by_robot) continue;
         if (obj.on_plate) continue;       // 盘上: 留给第二遍
         if (obj.valid_inside) continue;   // 容器内: 留给第二遍
+
+        // ★ 跳过受 cons_notnot 约束保护的物体(如"绿罐必须在plant")
+        //   除非任务明确指定了该物体的 color(说明任务就是要动它)
+        if (color == Color::Unknown && is_object_protected(env, obj.id, type)) {
+            cout << "    跳过受约束保护物体 #" << obj.id << endl;
+            continue;
+        }
 
         bool type_match = (obj.type == type);
         bool color_match = (color == Color::Unknown || obj.color == color);

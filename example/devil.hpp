@@ -43,6 +43,7 @@ namespace _home
         bool execute_open_task(EnvironmentManager& env, const Predicate& task);
     
     int find_object_by_conditions(EnvironmentManager& env, ObjectType type, Color color = Color::Unknown);
+    bool is_object_protected(EnvironmentManager& env, int obj_id, ObjectType type);
     ObjectType str_to_object_type(const std::string& s) const;
         
         bool execute_pickup(EnvironmentManager& env, int obj_id);

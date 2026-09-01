@@ -140,12 +140,14 @@ void InstructionParser::parse_rule(const std::string& rule_str, bool is_negated,
     if (cleaned.empty()) return;
 
     Rule rule;
-    if (cleaned.find("(:info") == 0) {
+    // ★ is_double_neg 必须最先判断!否则 cons_notnot 传入的是 (:info... 开头,
+    //   会被下面 (:info 分支吞掉, is_double_neg 分支永不触发 → cons_notnot 解析成 Info
+    if (is_double_neg) {
+        rule.type = RuleType::FactRequired;
+    } else if (cleaned.find("(:info") == 0) {
         rule.type = RuleType::Info;
     } else if (cleaned.find("(:task") == 0) {
         rule.type = is_negated ? RuleType::TaskForbidden : RuleType::TaskAllowed;
-    } else if (is_double_neg) {
-        rule.type = RuleType::FactRequired;
     } else {
         return;
     }
