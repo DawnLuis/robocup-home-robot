@@ -32,6 +32,13 @@ Color Devil::get_color_from_string(const std::string& color_str) const {
 
 
 
+// ★ 检查打开容器container_id是否违反cons_not(info opened X)禁令
+static bool open_violates_impl(InstructionParser& ip, EnvironmentManager& env, int container_id) {
+    const Object* c = env.get_object(container_id);
+    if (!c) return false;
+    return ip.violates_info_constraint(c->type, c->color, ObjectType::Unknown, "opened");
+}
+
 void Devil::Plan()
 {
     // 环境与解析器
@@ -63,6 +70,11 @@ void Devil::Plan()
     
     ins_parser.parse_instructions(taskDes);
     ins_parser.print_rules();
+
+    // ★ shadowing修复: Plan用的是局部ins_parser, 而find_object_by_conditions/
+    //   is_object_protected/is_reserved等成员函数读的是成员this->ins_parser(一直空!)
+    //   → 同步给成员, 否则cons_notnot保护/禁令感知全部静默失效
+    this->ins_parser = ins_parser;
 
     cout << "\n=== 开始任务规划与执行 ===" << endl;
 
@@ -433,7 +445,7 @@ bool Devil::execute_puton_task(EnvironmentManager& env, const Predicate& task) {
         // ★ 先检查当前手持物体是否已满足条件，避免无谓 PutDown+重选
         small_obj_id = try_held_object(env, x_type, x_color);
         if (small_obj_id == -1) {
-            small_obj_id = find_object_by_conditions(env, x_type, x_color);
+            small_obj_id = find_object_by_conditions(env, x_type, x_color, y_type, "on");
         }
     }
     
@@ -560,113 +572,121 @@ bool Devil::execute_putin_task(EnvironmentManager& env, const Predicate& task) {
         }
     }
 
-    // 使用组合条件查找物体
-    if (x_type != ObjectType::Unknown) {
-        cout << "    使用组合条件查找X: type=" << static_cast<int>(x_type) << ", color=" << static_cast<int>(x_color) << endl;
-        // ★ 先检查当前手持物体是否已满足条件，避免无谓 PutDown+重选
-        obj_id = try_held_object(env, x_type, x_color);
-        if (obj_id == -1) {
-            obj_id = find_object_by_conditions(env, x_type, x_color);
-        }
-    }
-    
+    // 使用组合条件查找容器 Y
     if (y_type != ObjectType::Unknown) {
         cout << "    查找Y: type=" << static_cast<int>(y_type) << endl;
         container_id = find_object_by_type(env, y_type);
-    }
-
-    if (obj_id == -1) {
-        cout << "  错误: 无法找到要放入的物体 X。" << endl;
-        // 额外调试：列出所有罐头
-        cout << "  所有罐头物体: ";
-        for (const auto& pair : env.get_objects()) {
-            if (pair.second.type == ObjectType::Can) {
-                cout << "#" << pair.first << "(color=" << static_cast<int>(pair.second.color) << ") ";
-            }
-        }
-        cout << endl;
-        return false;
     }
     if (container_id == -1) {
         cout << "  错误: 无法找到容器 Y。" << endl;
         return false;
     }
-
-    cout << "  执行 putin: 将物体 #" << obj_id << " 放入 #" << container_id << endl;
-
-    // 检查物体是否在容器中
-    const Object* obj = env.get_object(obj_id);
-    if (obj->valid_inside) {
-        cout << "  物体 #" << obj_id << " 已在容器 #" << obj->inside << " 中" << endl;
-        if (obj->inside == container_id) {
-            cout << "  物体已在目标容器中，任务完成" << endl;
-            return true;
-        } else {
-            cout << "  需要先从当前容器取出" << endl;
-            if (!execute_takeout(env, obj_id, obj->inside, true, true)) {
-                return false;
-            }
-        }
-    }
-
-    // 确保机器人拿着目标物体
-    int held_id = env.get_held_object();
-    if (held_id != obj_id) {
-        if (env.is_holding()) {
-            PutDown(held_id);
-            env.update_after_putdown(held_id);
-        }
-        if (!execute_pickup(env, obj_id)) {
-            return false;
-        }
-    }
-
-    // 移动到容器位置
-    int container_loc = env.get_object_location(container_id);
-    if (container_loc == -1) {
-        cout << "  错误: 无法确定容器位置。" << endl;
+    if (x_type == ObjectType::Unknown) {
+        cout << "  错误: 无法确定X类型。" << endl;
         return false;
     }
 
-    int robot_loc = env.get_robot_location();
-    if (robot_loc != container_loc) {
-        cout << "  移动机器人到位置 " << container_loc << endl;
-        if (!Move(container_loc)) {
+    // ★ v13候选重试循环: 某候选取不出/放不进 → 换下一个候选再试
+    //   (v12教训: 单一候选藏禁门时整任务弃40分, 而约束照样会被其它任务毁掉;
+    //    正确姿势是换干净候选, 换无可换才权衡)
+    std::vector<int> tried;
+    for (int attempt = 0; attempt < 6; ++attempt) {
+        obj_id = try_held_object(env, x_type, x_color);
+        if (obj_id != -1 &&
+            std::find(tried.begin(), tried.end(), obj_id) != tried.end()) {
+            obj_id = -1;
+        }
+        if (obj_id != -1) {
+            const Object* held_obj = env.get_object(obj_id);
+            if (held_obj &&
+                ins_parser.violates_info_constraint(held_obj->type, held_obj->color,
+                                                    y_type, "inside")) {
+                cout << "  手持物体 #" << obj_id << " 放入目标会违反cons_not, 不复用" << endl;
+                obj_id = -1;
+            }
+        }
+        if (obj_id == -1) {
+            obj_id = find_object_by_conditions(env, x_type, x_color, y_type, "inside", tried);
+        }
+        if (obj_id == -1) {
+            cout << "  错误: 无更多可用候选X。" << endl;
             return false;
         }
-        env.update_after_move(container_loc);
-    }
+        tried.push_back(obj_id);
+        cout << "  执行 putin[候选" << attempt + 1 << "]: 将物体 #" << obj_id
+             << " 放入 #" << container_id << endl;
 
-    // 检查并打开容器
-    const Object* container = env.get_object(container_id);
-    if (container->state != ContainerState::Opened) {
-        // 放下物体以打开容器
-        if (env.is_holding()) {
-            PutDown(env.get_held_object());
-            env.update_after_putdown(env.get_held_object());
+        // 若已在其他容器内 → 先取出; 取不出(禁门等)换候选
+        const Object* obj = env.get_object(obj_id);
+        if (obj->valid_inside) {
+            if (obj->inside == container_id) {
+                cout << "  物体已在目标容器中，任务完成" << endl;
+                return true;
+            }
+            cout << "  需要先从当前容器取出" << endl;
+            if (!execute_takeout(env, obj_id, obj->inside, true, true)) {
+                cout << "  #" << obj_id << " 取出失败, 换候选" << endl;
+                continue;
+            }
         }
-        
-        if (!Open(container_id)) {
-            cout << "  打开容器失败！" << endl;
-            return false;
-        }
-        env.update_after_open(container_id);
-        
-        // 重新拿起物体
-        if (!execute_pickup(env, obj_id)) {
-            return false;
-        }
-    }
 
-    // 执行放入
-    bool success = PutIn(obj_id, container_id);
-    if (success) {
-        env.update_after_putin(obj_id, container_id);
-        cout << "  成功完成 putin 任务。" << endl;
-    } else {
-        cout << "  PutIn 失败，可能位置不匹配或容器已满。" << endl;
+        // 确保机器人拿着目标物体
+        int held_id = env.get_held_object();
+        if (held_id != obj_id) {
+            if (env.is_holding()) {
+                PutDown(held_id);
+                env.update_after_putdown(held_id);
+            }
+            if (!execute_pickup(env, obj_id)) {
+                cout << "  #" << obj_id << " 拾取失败, 换候选" << endl;
+                continue;
+            }
+        }
+
+        // 移动到容器位置
+        int container_loc = env.get_object_location(container_id);
+        if (container_loc == -1) {
+            cout << "  错误: 无法确定容器位置。" << endl;
+            return false;
+        }
+        int robot_loc = env.get_robot_location();
+        if (robot_loc != container_loc) {
+            cout << "  移动机器人到位置 " << container_loc << endl;
+            if (!Move(container_loc)) {
+                return false;
+            }
+            env.update_after_move(container_loc);
+        }
+
+        // 检查并打开容器(需空手)
+        const Object* container = env.get_object(container_id);
+        if (container->state != ContainerState::Opened) {
+            if (env.is_holding()) {
+                PutDown(env.get_held_object());
+                env.update_after_putdown(env.get_held_object());
+            }
+            if (!Open(container_id)) {
+                cout << "  打开容器失败！" << endl;
+                return false;
+            }
+            env.update_after_open(container_id);
+            if (!execute_pickup(env, obj_id)) {
+                cout << "  重拿 #" << obj_id << " 失败, 换候选" << endl;
+                continue;
+            }
+        }
+
+        // 执行放入
+        bool success = PutIn(obj_id, container_id);
+        if (success) {
+            env.update_after_putin(obj_id, container_id);
+            cout << "  成功完成 putin 任务。" << endl;
+            return true;
+        }
+        cout << "  PutIn #" << obj_id << " 失败"
+             << (attempt < 5 ? "，换候选重试" : "，放弃") << endl;
     }
-    return success;
+    return false;
 }
 
 bool Devil::execute_goto_task(EnvironmentManager& env, const Predicate& task) {
@@ -982,45 +1002,84 @@ bool Devil::is_object_protected(EnvironmentManager& env, int obj_id, ObjectType 
     return false;
 }
 
-int Devil::find_object_by_conditions(EnvironmentManager& env, ObjectType type, Color color) {
-    cout << "  查找物体: type=" << static_cast<int>(type) << ", color=" << static_cast<int>(color) << endl;
+int Devil::find_object_by_conditions(EnvironmentManager& env, ObjectType type, Color color,
+                                     ObjectType target_type, const char* rel,
+                                     const std::vector<int>& exclude) {
+    cout << "  查找物体: type=" << static_cast<int>(type) << ", color=" << static_cast<int>(color);
+    if (rel && *rel && target_type != ObjectType::Unknown)
+        cout << ", 目标" << rel << "type=" << static_cast<int>(target_type);
+    cout << endl;
+
+    std::string srel = rel ? rel : "";
+    // ★ P0检索路径感知: 候选藏在"被cons_not禁止打开"的关容器里 → 取出必毁opened约束(-20)
+    //   有干净候选时绝不碰禁门, 全排列兜底才用它(净赚+40-20时才值)
+    auto retrieval_blocked = [&](const Object& obj) -> bool {
+        if (!obj.valid_inside) return false;
+        const Object* c = env.get_object(obj.inside);
+        if (!c) return false;
+        if (c->state == ContainerState::Opened) return false; // 已开门不毁约束
+        return open_violates_impl(ins_parser, env, obj.inside);
+    };
+    // 候选过滤: cons_not禁令(X放Y违规) + cons_notnot保护(搬走毁约束)
+    auto candidate_ok = [&](const Object& obj) -> bool {
+        if (!srel.empty() && target_type != ObjectType::Unknown &&
+            ins_parser.violates_info_constraint(obj.type, obj.color, target_type, srel)) {
+            cout << "    跳过 #" << obj.id << ": 放到目标会违反cons_not(" << srel << ")" << endl;
+            return false;
+        }
+        if (target_type != ObjectType::Unknown &&
+            ins_parser.breaks_required_fact(obj.type, obj.color, target_type)) {
+            cout << "    跳过 #" << obj.id << ": 搬走会破坏cons_notnot(目标!=锁定位置)" << endl;
+            return false;
+        }
+        if (color == Color::Unknown && is_object_protected(env, obj.id, type)) {
+            cout << "    跳过受约束保护物体 #" << obj.id << endl;
+            return false;
+        }
+        return true;
+    };
 
     // 第一遍: 优先找"可自由拿起"的物体(不在盘上/容器中/未被手持)
     // ★ 避免误选盘上物体(拿它会破坏 plate 约束)或容器内物体
     for (const auto& pair : env.get_objects()) {
         const Object& obj = pair.second;
         if (obj.id == 0) continue;
+        if (std::find(exclude.begin(), exclude.end(), obj.id) != exclude.end()) continue; // 本任务已试败
         if (obj.held_by_robot) continue;
         if (obj.on_plate) continue;       // 盘上: 留给第二遍
         if (obj.valid_inside) continue;   // 容器内: 留给第二遍
 
-        // ★ 跳过受 cons_notnot 约束保护的物体(如"绿罐必须在plant")
-        //   除非任务明确指定了该物体的 color(说明任务就是要动它)
-        if (color == Color::Unknown && is_object_protected(env, obj.id, type)) {
-            cout << "    跳过受约束保护物体 #" << obj.id << endl;
-            continue;
-        }
-
         bool type_match = (obj.type == type);
         bool color_match = (color == Color::Unknown || obj.color == color);
-        if (type_match && color_match) {
+        if (type_match && color_match && candidate_ok(obj)) {
             cout << "    第一遍找到可自由拿起物体 #" << obj.id << endl;
             return obj.id;
         }
     }
 
     // 第二遍 fallback: 该类型物体都在盘上/容器中, 只能选盘上/容器内的
+    // ★ 再分层: 藏禁门后的候选垫底(2b), 普通盘上/容器内优先(2a)
+    int blocked_pick = -1;
     for (const auto& pair : env.get_objects()) {
         const Object& obj = pair.second;
         if (obj.id == 0) continue;
+        if (std::find(exclude.begin(), exclude.end(), obj.id) != exclude.end()) continue;
         if (obj.held_by_robot) continue;
 
         bool type_match = (obj.type == type);
         bool color_match = (color == Color::Unknown || obj.color == color);
-        if (type_match && color_match) {
+        if (type_match && color_match && candidate_ok(obj)) {
+            if (retrieval_blocked(obj)) {
+                if (blocked_pick == -1) blocked_pick = obj.id;
+                continue;
+            }
             cout << "    第二遍找到物体 #" << obj.id << " (盘上/容器内)" << endl;
             return obj.id;
         }
+    }
+    if (blocked_pick != -1) {
+        cout << "    仅剩禁门内候选 #" << blocked_pick << ", 权衡后选用(取物需毁约束)" << endl;
+        return blocked_pick;
     }
     cout << "  未找到匹配物体" << endl;
     return -1;
@@ -1280,6 +1339,10 @@ bool Devil::execute_takeout(EnvironmentManager& env, int small_obj_id, int conta
 
     cout << "  执行 TakeOut: 从容器 #" << container_id << " 中取出 #" << small_obj_id << endl;
 
+    // ★ 经济账(evaluate.cpp+规则7.6): 毁约束=失去+20维护分, 完成目标=+40。
+    //   若禁令容器是唯一取物路径, 开门违禁净赚+20, 绝不能硬拦(01.xml实测:
+    //   硬拦v5的262→226)。禁令仅在find_object"有干净候选可免毁"时起偏好作用。
+
     // 检查物体是否真的在容器中
     // ★ 平台语义(fortask.lp): goal(takeout(A,B)) = not inside(A,B) — 物体只要不在B内,
     //   目标即已满足, 做动作反而扣分。位置未知(mis)时先 AskLoc 查明再决定。
@@ -1333,6 +1396,14 @@ bool Devil::execute_takeout(EnvironmentManager& env, int small_obj_id, int conta
     // 检查容器状态，未打开则先开门
     ContainerState state = env.get_container_state(container_id);
     if (state != ContainerState::Opened) {
+        // ★ P1硬伤修复(75.xml实锤): 中间步(need_in_hand)要开"被cons_not禁的关容器" → 必毁约束,
+        //   直接放弃让调用方换候选。独立takeout任务不拦: 毁约束-20但+40目标净赚(01.xml经济账)。
+        //   P0检索期拦不住是因为mis物体在env无位置, 禁门信息AskLoc后才暴露, 只能卡在这里。
+        if (need_in_hand && state == ContainerState::Closed &&
+            open_violates_impl(ins_parser, env, container_id)) {
+            cout << "  容器 #" << container_id << " 禁开且关着, 中间步放弃(不毁约不白走)" << endl;
+            return false;
+        }
         cout << "  容器 #" << container_id << " 未打开 ("
              << (state == ContainerState::Closed ? "closed" : "unknown") << ")，先开门。" << endl;
         if (!Open(container_id)) {

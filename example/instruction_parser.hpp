@@ -85,6 +85,17 @@ public:
 
     // 调试打印
     void print_rules() const;
+
+    // ★ 约束感知: 若把物体X(属性给定)放到位置Y(sort/color), 是否违反某条
+    //   cons_not(info on/inside X Y)? rel 传 "on"(puton用) 或 "inside"(putin用)。
+    //   任务谓词与禁令谓词不必同名(08.xml: 禁令是info inside, 任务却是putin)。
+    bool violates_info_constraint(ObjectType x_type, Color x_color,
+                                  ObjectType y_type, const std::string& rel) const;
+
+    // ★ cons_notnot 感知: 把物体X从位置 old_loc 搬走是否破坏某条 FactRequired
+    //   (must be on/inside 锁定)? 若任务目标就是锁定位置则允许(new_loc==锁定)。
+    bool breaks_required_fact(ObjectType x_type, Color x_color,
+                              ObjectType new_loc_type) const;
 };
 
 #endif // INSTRUCTION_PARSER_H

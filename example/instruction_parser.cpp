@@ -145,7 +145,9 @@ void InstructionParser::parse_rule(const std::string& rule_str, bool is_negated,
     if (is_double_neg) {
         rule.type = RuleType::FactRequired;
     } else if (cleaned.find("(:info") == 0) {
-        rule.type = RuleType::Info;
+        // ★ 修复: cons_not(info ...) 之前落到普通Info, 禁令身份在解析层就丢了
+        //   (08.xml零分根因: 蓝瓶不得入冰箱的禁令没被识别)
+        rule.type = is_negated ? RuleType::InfoForbidden : RuleType::Info;
     } else if (cleaned.find("(:task") == 0) {
         rule.type = is_negated ? RuleType::TaskForbidden : RuleType::TaskAllowed;
     } else {
@@ -322,4 +324,56 @@ void InstructionParser::print_rules() const {
                   << std::left << std::setw(action_width) << action
                   << " IF " << condition << "\n";
     }
+}
+// ★ 约束感知实现
+// 遍历所有 InfoForbidden(cons_not(info on/inside X Y))规则,
+// 若禁令的 X 条件匹配候选物体(type/color), Y 条件匹配目标位置type, 且
+// 关系词与本次动作一致(on / inside), 返回 true=违反
+bool InstructionParser::violates_info_constraint(
+        ObjectType x_type, Color x_color,
+        ObjectType y_type, const std::string& rel) const {
+    for (const auto& rule : rules) {
+        if (rule.type != RuleType::InfoForbidden) continue;
+        if (rule.head.name != rel) continue;   // 只比对 on / inside
+        ObjectType rx = ObjectType::Unknown;
+        Color cx = Color::Unknown;
+        ObjectType ry = ObjectType::Unknown;
+        bool has_x = false;
+        for (const auto& c : rule.head.conds) {
+            if (c.var == "X" && c.attr == "sort") { rx = str_to_object_type(c.value); has_x = true; }
+            else if (c.var == "X" && c.attr == "color") cx = str_to_color(c.value);
+            else if (c.var == "Y" && c.attr == "sort") ry = str_to_object_type(c.value);
+        }
+        if (!has_x) continue;
+        bool x_match = (rx == x_type) && (cx == Color::Unknown || cx == x_color);
+        bool y_match = (ry == ObjectType::Unknown || ry == y_type);
+        if (x_match && y_match) return true;
+    }
+    return false;
+}
+
+// ★ cons_notnot 感知实现
+// 遍历 FactRequired(on/inside 锁定): 若候选物体 X(type/color) 被锁定在某位置
+// lock_loc, 而任务要搬去的新位置 new_loc != lock_loc → 搬走必毁约束, 返回 true
+bool InstructionParser::breaks_required_fact(
+        ObjectType x_type, Color x_color,
+        ObjectType new_loc_type) const {
+    for (const auto& rule : rules) {
+        if (rule.type != RuleType::FactRequired) continue;
+        if (rule.head.name != "on" && rule.head.name != "inside" &&
+            rule.head.name != "near") continue;
+        ObjectType rx = ObjectType::Unknown;
+        Color cx = Color::Unknown;
+        ObjectType ry = ObjectType::Unknown;
+        bool has_x = false;
+        for (const auto& c : rule.head.conds) {
+            if (c.var == "X" && c.attr == "sort") { rx = str_to_object_type(c.value); has_x = true; }
+            else if (c.var == "X" && c.attr == "color") cx = str_to_color(c.value);
+            else if (c.var == "Y" && c.attr == "sort") ry = str_to_object_type(c.value);
+        }
+        if (!has_x) continue;
+        bool x_match = (rx == x_type) && (cx == Color::Unknown || cx == x_color);
+        if (x_match && ry != ObjectType::Unknown && ry != new_loc_type) return true;
+    }
+    return false;
 }
