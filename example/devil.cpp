@@ -465,7 +465,7 @@ bool Devil::execute_puton_task(EnvironmentManager& env, const Predicate& task) {
     const Object* small_obj = env.get_object(small_obj_id);
     if (small_obj->valid_inside) {
         cout << "  物体 #" << small_obj_id << " 在容器 #" << small_obj->inside << " 中，需要先取出" << endl;
-        if (!execute_takeout(env, small_obj_id, small_obj->inside)) {
+        if (!execute_takeout(env, small_obj_id, small_obj->inside, true, true)) {
             cout << "  取出物体失败，无法执行 puton" << endl;
             return false;
         }
@@ -593,7 +593,7 @@ bool Devil::execute_putin_task(EnvironmentManager& env, const Predicate& task) {
             return true;
         } else {
             cout << "  需要先从当前容器取出" << endl;
-            if (!execute_takeout(env, obj_id, obj->inside)) {
+            if (!execute_takeout(env, obj_id, obj->inside, true, true)) {
                 return false;
             }
         }
@@ -747,22 +747,28 @@ bool Devil::execute_takeout_task(EnvironmentManager& env, const Predicate& task)
     int obj_id = -1;
     int container_id = -1;
 
+    // ★ 修复: 必须先按 attr 收集条件再各查一次。
+    // 旧写法对每条 X/Y 条件都调 find, 导致 (color X white)/(type Y container)
+    // 也被 str_to_object_type 转成 Unknown(24), 第二次查找把正确结果覆盖成 -1,
+    // takeout 任务永远"无法找到任务所需的物体"。
+    ObjectType x_type = ObjectType::Unknown;
+    Color x_color = Color::Unknown;
+    ObjectType y_type = ObjectType::Unknown;
     for (const auto& cond : task.conds) {
         if (cond.var == "X") {
-            ObjectType type = ins_parser.str_to_object_type(cond.value);
-            Color color = Color::Unknown;
-            for (const auto& c : task.conds) {
-                if (c.var == "X" && c.attr == "color") {
-                    color = env.str_to_color(c.value);
-                    break;
-                }
-            }
-            obj_id = find_object_by_conditions(env, type, color);
+            if (cond.attr == "sort") x_type = ins_parser.str_to_object_type(cond.value);
+            else if (cond.attr == "color") x_color = env.str_to_color(cond.value);
         }
         else if (cond.var == "Y") {
-            ObjectType type = ins_parser.str_to_object_type(cond.value);
-            container_id = find_object_by_type(env, type);
+            if (cond.attr == "sort") y_type = ins_parser.str_to_object_type(cond.value);
         }
+    }
+
+    if (x_type != ObjectType::Unknown) {
+        obj_id = find_object_by_conditions(env, x_type, x_color);
+    }
+    if (y_type != ObjectType::Unknown) {
+        container_id = find_object_by_type(env, y_type);
     }
 
     if (obj_id == -1 || container_id == -1) {
@@ -1052,7 +1058,7 @@ int Devil::find_object_by_type(EnvironmentManager& env, ObjectType type) {
 
 // 执行 pickup 动作的完整流程
 // 改进的pickup函数 - 添加更多调试信息
-bool Devil::execute_pickup(EnvironmentManager& env, int obj_id) {
+bool Devil::execute_pickup(EnvironmentManager& env, int obj_id, bool allow_reask) {
     const Object* obj = env.get_object(obj_id);
     if (!obj) {
         cout << "  错误: 物体 #" << obj_id << " 不存在。" << endl;
@@ -1156,21 +1162,21 @@ bool Devil::execute_pickup(EnvironmentManager& env, int obj_id) {
         }
     }
 
-    // 物体在地面上
+    // 物体在地面上(或位置未知)
     int loc = env.get_object_location(obj_id);
     if (loc == -1) {
         cout << "  物体位置未知，使用 AskLoc 查询..." << endl;
-        string loc_info = AskLoc(obj_id);
-        if (loc_info == "not_known" || loc_info.empty()) {
-            cout << "  AskLoc 返回未知位置。" << endl;
-            return false;
+        int real = askloc_reveal(env, obj_id);
+        if (real > 0) {
+            // AskLoc 说物体在容器里 → 改走 takeout(不再 reask 防递归)
+            cout << "  AskLoc: 物体在容器 #" << real << " 内, 改走 TakeOut" << endl;
+            return execute_takeout(env, obj_id, real, false, true);
         }
-        env.update_from_askloc(loc_info);
-        loc = env.get_object_location(obj_id);
-        if (loc == -1) {
+        if (real != -1) {
             cout << "  仍然无法确定物体位置。" << endl;
             return false;
         }
+        loc = env.get_object_location(obj_id);
     }
 
     cout << "  物体 #" << obj_id << " 在位置 " << loc << endl;
@@ -1191,10 +1197,33 @@ bool Devil::execute_pickup(EnvironmentManager& env, int obj_id) {
         cout << "  成功拿起物体 #" << obj_id << endl;
     } else {
         cout << "  PickUp 操作失败！" << endl;
-        // 额外调试信息
-        cout << "  调试信息 - 机器人位置: " << env.get_robot_location() 
-             << ", 物体位置: " << loc 
+        cout << "  调试信息 - 机器人位置: " << env.get_robot_location()
+             << ", 物体位置: " << loc
              << ", 是否手持: " << (env.is_holding() ? "是" : "否") << endl;
+        // ★ 失败重验证: 位置可能来自 AskLoc 假答案或 err 假线索, 清除后重查一次
+        if (allow_reask) {
+            cout << "  位置信息可能为假, 清除后重新 AskLoc..." << endl;
+            env.forget_position(obj_id);
+            int real = askloc_reveal(env, obj_id);
+            if (real > 0) {
+                // 物体实际在容器里 → 改走 takeout
+                cout << "  物体实际在容器 #" << real << " 内, 改走 TakeOut" << endl;
+                return execute_takeout(env, obj_id, real, false, true);
+            } else if (real == -1) {
+                // 物体在地面某处 → 重新移动+PickUp(不再 reask)
+                int new_loc = env.get_object_location(obj_id);
+                if (new_loc != -1 && new_loc != loc) {
+                    cout << "  物体实际在位置 " << new_loc << ", 重新移动+PickUp" << endl;
+                    int rl = env.get_robot_location();
+                    if (rl != new_loc) {
+                        if (!Move(new_loc)) return false;
+                        env.update_after_move(new_loc);
+                    }
+                    success = PickUp(obj_id);
+                    if (success) env.update_after_pickup(obj_id);
+                }
+            }
+        }
     }
     return success;
 }
@@ -1216,16 +1245,52 @@ bool Devil::execute_move(EnvironmentManager& env, int target_loc) {
 }
 
 // 执行 takeout 动作
-bool Devil::execute_takeout(EnvironmentManager& env, int small_obj_id, int container_id) {
+// ★ 防御式 AskLoc 兜底: 物体位置未知或在预期容器外时, 查询真实位置并修正环境
+// 返回: >0 = 真实所在容器id; -1 = 在地面(env已更新valid_at); 0 = 未能确认
+int Devil::askloc_reveal(EnvironmentManager& env, int obj_id) {
+    const Object* obj = env.get_object(obj_id);
+    if (!obj) return 0;
+    cout << "  [askloc_reveal] 查询物体 #" << obj_id << " 真实位置..." << endl;
+    string loc_info = AskLoc(obj_id);
+    if (loc_info == "not_known" || loc_info.empty()) {
+        cout << "  [askloc_reveal] 平台回答 not_known" << endl;
+        return 0;
+    }
+    env.update_from_askloc(loc_info);
+    const Object* obj2 = env.get_object(obj_id);
+    if (!obj2) return 0;
+    if (obj2->valid_inside) return obj2->inside;   // 在容器内 → 返回容器id
+    if (obj2->valid_at) return -1;                  // 在地面 → 走 pickup 路径
+    return 0;
+}
+
+bool Devil::execute_takeout(EnvironmentManager& env, int small_obj_id, int container_id, bool allow_reask, bool need_in_hand) {
     const Object* container = env.get_object(container_id);
     if (!container || !container->is_container) return false;
 
     cout << "  执行 TakeOut: 从容器 #" << container_id << " 中取出 #" << small_obj_id << endl;
 
     // 检查物体是否真的在容器中
+    // ★ 平台语义(fortask.lp): goal(takeout(A,B)) = not inside(A,B) — 物体只要不在B内,
+    //   目标即已满足, 做动作反而扣分。位置未知(mis)时先 AskLoc 查明再决定。
     if (!env.is_inside_container(small_obj_id, container_id)) {
-        cout << "  错误: 物体 #" << small_obj_id << " 不在容器 #" << container_id << " 中！" << endl;
-        return false;
+        const Object* obj_ptr = env.get_object(small_obj_id);
+        bool has_pos = obj_ptr && (obj_ptr->valid_at || obj_ptr->valid_inside || obj_ptr->on_plate);
+        if (!has_pos) {
+            cout << "  物体 #" << small_obj_id << " 位置未知, AskLoc 查询..." << endl;
+            int real = askloc_reveal(env, small_obj_id);
+            if (real == container_id) {
+                cout << "  AskLoc: 物体确在目标容器 #" << container_id << " 内, 继续 TakeOut" << endl;
+            } else {
+                // 地面 / 其他容器 → 不在B内 → 目标已满足, 零动作收分
+                cout << "  AskLoc: 物体不在目标容器内, takeout 目标已满足, 无需动作" << endl;
+                return true;
+            }
+        } else {
+            // env 显示物体不在B内(地面/其他容器/位置在别处) → 目标已满足
+            cout << "  物体 #" << small_obj_id << " 不在容器 #" << container_id << " 中, 目标已满足" << endl;
+            return true;
+        }
     }
 
     // 移动到容器所在位置
@@ -1273,7 +1338,7 @@ bool Devil::execute_takeout(EnvironmentManager& env, int small_obj_id, int conta
         cout << "  成功取出物体 #" << small_obj_id << endl;
     } else {
         cout << "  TakeOut 失败！可能物体不在容器中或机械臂无法到达。" << endl;
-        
+
         // 额外调试：显示容器内所有物体
         cout << "  调试信息 - 容器 #" << container_id << " 内的物体: ";
         for (const auto& obj_pair : env.get_objects()) {
@@ -1282,6 +1347,32 @@ bool Devil::execute_takeout(EnvironmentManager& env, int small_obj_id, int conta
             }
         }
         cout << endl;
+
+        // ★ 失败重验证: 位置线索(err的w/AskLoc答案)可能是假的, 清除后重查一次
+        if (allow_reask) {
+            cout << "  位置信息可能为假, 清除后重新 AskLoc..." << endl;
+            env.forget_position(small_obj_id);
+            int real = askloc_reveal(env, small_obj_id);
+            if (real == container_id) {
+                // 确在本容器但 TakeOut 失败(平台矛盾), 放弃
+            } else if (real > 0) {
+                if (need_in_hand) {
+                    // putin/puton 中间步: 物体须在手中 → 转去真实容器取(不再reask)
+                    cout << "  物体实际在容器 #" << real << " 内, 转去取出(手持需求)" << endl;
+                    return execute_takeout(env, small_obj_id, real, false, true);
+                }
+                // 独立任务: 物体不在B内 → takeout(A,B)目标已满足, 停手
+                cout << "  物体不在目标容器内, 本 takeout 目标已满足" << endl;
+                return true;
+            } else if (real == -1) {
+                if (need_in_hand) {
+                    cout << "  物体实际在地面, 改用 PickUp(手持需求)" << endl;
+                    return execute_pickup(env, small_obj_id, false);
+                }
+                cout << "  物体实际在地面, 本 takeout 目标已满足, 无需动作" << endl;
+                return true;
+            }
+        }
     }
 
     return success;

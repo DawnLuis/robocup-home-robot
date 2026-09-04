@@ -48,11 +48,13 @@ namespace _home
     bool is_reserved_by_specific_task(ObjectType type, Color col);
     ObjectType str_to_object_type(const std::string& s) const;
         
-        bool execute_pickup(EnvironmentManager& env, int obj_id);
+        bool execute_pickup(EnvironmentManager& env, int obj_id, bool allow_reask = true);
         bool execute_puton(EnvironmentManager& env, const Predicate& task);
         // bool execute_putoff(EnvironmentManager& env, int obj_id); // 对应 PutOn 的逆操作
         bool execute_putin(EnvironmentManager& env, const Predicate& task);
-        bool execute_takeout(EnvironmentManager& env, int obj_id, int container_id);
+        bool execute_takeout(EnvironmentManager& env, int obj_id, int container_id, bool allow_reask = true, bool need_in_hand = false);
+        // AskLoc 探明物体真实位置: >0=在容器id内, -1=地面某处, 0=未知
+        int askloc_reveal(EnvironmentManager& env, int obj_id);
         bool execute_move(EnvironmentManager& env, int loc);
         bool execute_give(EnvironmentManager& env, const Predicate& task);
 

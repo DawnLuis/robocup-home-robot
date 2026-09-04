@@ -427,14 +427,18 @@ void EnvironmentManager::update_from_askloc(const std::string& result) {
     if (start == std::string::npos) return;
     s = s.substr(start, end - start + 1);
 
-    // 检查是否以 "at(" 开头，以 ")" 结尾
-    if (s.length() < 5 || s.substr(0, 3) != "at(" || s.back() != ')') {
-        std::cout << "[Env] 格式错误，期望 at(id1,id2)：'" << result << "'" << std::endl;
+    // 检查格式: "at(id,loc)" 或 "inside(id,container)"
+    bool is_inside_form = false;
+    std::string body;
+    if (s.length() >= 5 && s.substr(0, 3) == "at(" && s.back() == ')') {
+        body = s.substr(3, s.length() - 4);
+    } else if (s.length() >= 10 && s.substr(0, 7) == "inside(" && s.back() == ')') {
+        is_inside_form = true;
+        body = s.substr(7, s.length() - 8);
+    } else {
+        std::cout << "[Env] 格式错误，期望 at(id1,id2)/inside(id1,id2)：'" << result << "'" << std::endl;
         return;
     }
-
-    // 去掉 "at(" 和 ")"
-    std::string body = s.substr(3, s.length() - 4); // 从第3个字符开始，长度为总长-4
 
     // 查找逗号
     auto comma = body.find(',');
@@ -476,11 +480,43 @@ auto trim = [](const std::string& str) -> std::string {
     }
 
     Object& obj = it->second;
-    obj.at = loc_id;
-    obj.valid_at = true;
-
-    std::cout << "[Env] 成功更新: obj" << obj_id << " 的位置为 " << loc_id << std::endl;
+    // ★ 防御式更新: AskLoc 在 ans=on(第二阶段)时可能回答错误(60%对/30%错/10%未知),
+    //   因此仅当物体"完全没有已知位置"时才写入, 绝不覆盖已有信息。
+    bool has_known_pos = obj.valid_at || obj.valid_inside || obj.on_plate || obj.held_by_robot;
+    if (is_inside_form) {
+        if (has_known_pos) {
+            std::cout << "[Env] obj" << obj_id << " 已有位置信息, 忽略 AskLoc 的 inside 答案 " << loc_id << std::endl;
+            return;
+        }
+        obj.inside = loc_id;
+        obj.valid_inside = true;
+        obj.valid_at = false;
+        obj.askloc_set = true;
+        std::cout << "[Env] 成功更新: obj" << obj_id << " 在容器 " << loc_id << " 内(AskLoc)" << std::endl;
+    } else {
+        if (has_known_pos) {
+            std::cout << "[Env] obj" << obj_id << " 已有位置信息, 忽略 AskLoc 的 at 答案 " << loc_id << std::endl;
+            return;
+        }
+        obj.at = loc_id;
+        obj.valid_at = true;
+        obj.askloc_set = true;
+        std::cout << "[Env] 成功更新: obj" << obj_id << " 的位置为 " << loc_id << std::endl;
+    }
     obj.print();
+}
+
+// ★ 动作失败证明所持位置信息不可信(err假线索/AskLoc假答案), 清除以便下轮 AskLoc 重查
+void EnvironmentManager::forget_position(int obj_id) {
+    auto it = objects.find(obj_id);
+    if (it == objects.end()) return;
+    Object& obj = it->second;
+    obj.valid_at = false;
+    obj.valid_inside = false;
+    obj.at = -1;
+    obj.inside = -1;
+    obj.askloc_set = false;
+    std::cout << "[Env] 清除 obj" << obj_id << " 的位置信息(动作失败证伪, 待重查)" << std::endl;
 }
 
 // environment_manager.cpp

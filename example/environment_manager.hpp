@@ -30,6 +30,7 @@ struct Object {
     ContainerState state = ContainerState::Unknown;
     bool held_by_robot = false;     // robot 是否拿着它
     bool on_plate = false;    // 是否在 robot 的盘子里
+    bool askloc_set = false;  // ★ at/inside 是否来自 AskLoc(ans=on时可能被平台骗)
 
     void print() const;
 };
@@ -82,6 +83,7 @@ public:
     const std::vector<int>& get_plate_objects() const { return plate_objects; }
     bool is_holding() const { return held_object != -1; }
     void update_from_askloc(const std::string& result); // 更新物体位置，调用 AskLoc 接口
+    void forget_position(int obj_id); // ★ 动作失败证明位置信息(Env的w假线索或AskLoc假答案)不可信时清除, 以便重查
 
     const Object* get_object(int id) const;
     int get_object_location(int id) const;        // 返回实际位置（at 或 inside）
