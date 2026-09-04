@@ -254,7 +254,10 @@ std::string SimpleNLU::parse(const std::string& input) {
             is_negated = false;
         }
         // 2. 任务类规则 (指令)
+        // ★ "must ... (not) be ..." 是约束句(cons_not/cons_notnot), 不是任务指令
+        //   (77/90: "There must not be refrigerator is opened" 曾误入task变cons_not(task open))
         else if (!contains(lower_sent, "opened") && !contains(lower_sent, "closed") &&
+                 !is_required &&
                  (contains(lower_sent, "put") || contains(lower_sent, "place") ||
                  contains(lower_sent, "take") || contains(lower_sent, "pick") ||
                  contains(lower_sent, "give") || contains(lower_sent, "move") ||
@@ -265,8 +268,18 @@ std::string SimpleNLU::parse(const std::string& input) {
             is_task_origin = true;
 
             // 确定任务类型
-            if ((contains(lower_sent, "put") || contains(lower_sent, "place")) &&
-                (contains(lower_sent, " in ") || contains(lower_sent, " into "))) {
+            // ★ takeout 必须先于 puton/putin 判断: "Take the bottle out of the refrigerator"
+            //   同时含 put(误) / "out of"+"take"(正)。指南允许 take...out 句式,
+            //   out 后既可跟 of 也可跟 from。放在 puton 之后会被默认 puton 吞掉(96.xml实锤)
+            if (contains(lower_sent, "take out") || contains(lower_sent, "get out") ||
+                (contains(lower_sent, "take") &&
+                 (contains(lower_sent, " out of ") || contains(lower_sent, " out from ") ||
+                  contains(lower_sent, " from ")))) {
+                predicate_name = "takeout";
+                predicate_args = {"X", "Y"};
+            }
+            else if ((contains(lower_sent, "put") || contains(lower_sent, "place")) &&
+                     (contains(lower_sent, " in ") || contains(lower_sent, " into "))) {
                 predicate_name = "putin";
                 predicate_args = {"X", "Y"};
             }
@@ -279,11 +292,6 @@ std::string SimpleNLU::parse(const std::string& input) {
             else if ((contains(lower_sent, "put") || contains(lower_sent, "place")) &&
                      (contains(lower_sent, " on ") || contains(lower_sent, " onto "))) {
                 predicate_name = "puton";
-                predicate_args = {"X", "Y"};
-            }
-            else if (contains(lower_sent, "take out") || contains(lower_sent, "get out") ||
-                     (contains(lower_sent, "take") && contains(lower_sent, " from "))) {
-                predicate_name = "takeout";
                 predicate_args = {"X", "Y"};
             }
             else if (contains(lower_sent, "pick")) {
