@@ -358,11 +358,21 @@ bool Devil::execute_pickup_task(EnvironmentManager& env, const Predicate& task) 
 
 bool Devil::execute_putdown_task(EnvironmentManager& env, const Predicate& task) {
     int target_obj_id = -1;
+    // ★ 修复: putdown 目标语义 goal(putdown(A))=outagent(A)(fortask.lp:12),
+    //   平台把所有匹配条件的同型物体都算目标。若手持某同型物却按最小ID选到
+    //   另一个"没拿的", 会误走"任务自动完成"分支, 手持物永远不放 → 丢40分目标。
+    //   正确: 先查手持物是否满足条件(优先放下), 再按类型找。
+    ObjectType x_type = ObjectType::Unknown;
+    Color x_color = Color::Unknown;
     for (const auto& cond : task.conds) {
-        if (cond.var == "X") {
-            ObjectType type = ins_parser.str_to_object_type(cond.value);
-            target_obj_id = find_object_by_type(env, type);
-            break;
+        if (cond.var != "X") continue;
+        if (cond.attr == "sort") x_type = ins_parser.str_to_object_type(cond.value);
+        else if (cond.attr == "color") x_color = get_color_from_string(cond.value);
+    }
+    if (x_type != ObjectType::Unknown) {
+        target_obj_id = try_held_object(env, x_type, x_color);
+        if (target_obj_id == -1) {
+            target_obj_id = find_object_by_type(env, x_type);
         }
     }
 
