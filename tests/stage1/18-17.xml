@@ -10,11 +10,12 @@
 (sort 5 chair) (size 5 big) (at 5 5)
 (sort 6 couch) (size 6 big) (at 6 6)
 (sort 7 bed) (size 7 big) (at 7 7)
-(sort 8 bottle) (size 8 small) (color 8 white) (at 8 8)
+(sort 8 bottle) (size 8 small) (color 8 white) (at 8 4)
 (sort 9 book) (size 9 small) (color 9 yellow) (at 9 9)
 (sort 10 remotecontrol) (size 10 small) (color 10 green) (at 10 10)
     </info>
     <mis>
+    
     </mis>
     <err>
         <r></r>
@@ -28,15 +29,17 @@
     (:info (on X Y) (:cond (sort X bottle) (color X white) (sort Y table)))
     (:task (takeout X Y) (:cond (sort X remotecontrol) (color X green) (sort Y refrigerator) (type Y container)))
     (:task (puton X Y) (:cond (sort X book) (color X yellow) (sort Y chair)))
-    (:cons_notnot (:info (inside X Y) (:cond (sort X book) (color X yellow) (sort Y closet) (type Y container))))
+    (:cons_notnot (:info (closed X) (:cond (sort X closet))))
     (:cons_not (:task (puton X Y) (:cond (sort X bottle) (color X white) (sort Y couch))))
+    (:task (goto X) (:cond (sort X bed)))
 )
 </instr>
 <nl>
 The white bottle is on the table.
 Take out the green remotecontrol from the refrigerator.
 Put the yellow book on the chair.
-There must be a yellow book in the closet.
+The closet must be closed.
 Do not put the white bottle on the couch.
+Go to the bed.
 </nl>
 </test>

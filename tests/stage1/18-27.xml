@@ -12,9 +12,10 @@
 (sort 7 plant) (size 7 big) (at 7 7)
 (sort 8 bottle) (size 8 small) (color 8 green) (at 8 8)
 (sort 9 remotecontrol) (size 9 small) (color 9 red) (at 9 9)
-(sort 10 book) (size 10 small) (color 10 white) (at 10 10)
+(sort 10 book) (size 10 small) (color 10 white) (inside 10 2)
     </info>
     <mis>
+    
     </mis>
     <err>
         <r></r>

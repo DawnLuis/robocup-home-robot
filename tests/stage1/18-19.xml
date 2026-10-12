@@ -12,9 +12,10 @@
 (sort 7 bed) (size 7 big) (at 7 7)
 (sort 8 remotecontrol) (size 8 small) (color 8 white) (at 8 8)
 (sort 9 bottle) (size 9 small) (color 9 black) (at 9 9)
-(sort 10 can) (size 10 small) (color 10 yellow) (at 10 10)
+(sort 10 can) (size 10 small) (color 10 yellow) (inside 10 3)
     </info>
     <mis>
+    
     </mis>
     <err>
         <r></r>
@@ -30,6 +31,7 @@
     (:task (puton X Y) (:cond (sort X bottle) (color X black) (sort Y worktable)))
     (:cons_notnot (:info (inside X Y) (:cond (sort X can) (color X yellow) (sort Y refrigerator) (type Y container))))
     (:cons_not (:task (puton X Y) (:cond (sort X bottle) (color X black) (sort Y bed))))
+    (:task (goto X) (:cond (sort X chair)))
 )
 </instr>
 <nl>
@@ -38,5 +40,6 @@ Take out the white remotecontrol from the closet.
 Put the black bottle on the worktable.
 There must be a yellow can in the refrigerator.
 Do not put the black bottle on the bed.
+Go to the chair.
 </nl>
 </test>

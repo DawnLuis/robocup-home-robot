@@ -13,9 +13,10 @@
 (sort 8 bed) (size 8 big) (at 8 8)
 (sort 9 book) (size 9 small) (color 9 yellow) (at 9 9)
 (sort 10 remotecontrol) (size 10 small) (color 10 green) (at 10 10)
-(sort 11 cup) (size 11 small) (color 11 red) (at 11 11)
+(sort 11 cup) (size 11 small) (color 11 red) (at 11 6)
     </info>
     <mis>
+    
     </mis>
     <err>
         <r></r>

@@ -10,16 +10,16 @@
 (sort 5 worktable) (size 5 big) (at 5 5)
 (sort 6 chair) (size 6 big) (at 6 6)
 (sort 7 teapoy) (size 7 big) (at 7 7)
-(sort 8 remotecontrol) (size 8 small) (color 8 green)
+(sort 8 remotecontrol) (size 8 small) (color 8 green) (inside 8 2)
 (sort 9 can) (size 9 small) (color 9 red)
-(sort 10 bottle) (size 10 small) (color 10 blue) (at 10 7)
+(sort 10 bottle) (size 10 small) (color 10 blue)
     </info>
     <mis>
-    (inside 8 2)
+    (inside 9 2)
     </mis>
     <err>
-        <r>(inside 9 3)</r>
-        <w>(inside 9 2)</w>
+        <r>(inside 10 2)</r>
+        <w>(inside 10 3)</w>
     </err>
     <extra>
     </extra>
@@ -29,13 +29,15 @@
     (:info (inside X Y) (:cond (sort X remotecontrol) (color X green) (sort Y microwave) (type Y container)))
     (:task (puton X Y) (:cond (sort X can) (color X red) (sort Y sofa)))
     (:task (putin X Y) (:cond (sort X bottle) (color X blue) (sort Y refrigerator) (type Y container)))
-    (:cons_notnot (:info (on X Y) (:cond (sort X can) (color X red) (sort Y worktable))))
+    (:cons_notnot (:info (opened X) (:cond (sort X microwave))))
+    (:task (goto X) (:cond (sort X chair)))
 )
 </instr>
 <nl>
 The green remotecontrol is in the microwave.
 Put the red can on the sofa.
 Put the blue bottle in the refrigerator.
-There must be a red can on the worktable.
+The microwave must be opened.
+Go to the chair.
 </nl>
 </test>

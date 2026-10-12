@@ -14,6 +14,7 @@
 (sort 9 book) (size 9 small) (color 9 red) (at 9 9)
     </info>
     <mis>
+    
     </mis>
     <err>
         <r></r>
@@ -24,18 +25,16 @@
 </env>
 <instr>
 (:ins
-    (:info (closed X) (:cond (sort X closet)))
     (:task (takeout X Y) (:cond (sort X cup) (color X white) (sort Y microwave) (type Y container)))
     (:task (putdown X) (:cond (sort X bottle) (color X blue)))
-    (:cons_notnot (:info (inside X Y) (:cond (sort X book) (color X red) (sort Y closet) (type Y container))))
+    (:cons_notnot (:info (closed X) (:cond (sort X closet))))
     (:task (puton X Y) (:cond (sort X book) (color X red) (sort Y sofa)))
 )
 </instr>
 <nl>
-The closet is closed.
 Take out the white cup from the microwave.
 Put down the blue bottle.
-There must be a red book in the closet.
+The closet must be closed.
 Put the red book on the sofa.
 </nl>
 </test>

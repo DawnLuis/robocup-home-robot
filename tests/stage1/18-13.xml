@@ -10,9 +10,10 @@
 (sort 5 plant) (size 5 big) (at 5 5)
 (sort 6 bottle) (size 6 small) (color 6 black) (at 6 6)
 (sort 7 cup) (size 7 small) (color 7 white) (at 7 7)
-(sort 8 book) (size 8 small) (color 8 blue) (at 8 8)
+(sort 8 book) (size 8 small) (color 8 blue) (at 8 4)
     </info>
     <mis>
+    
     </mis>
     <err>
         <r></r>

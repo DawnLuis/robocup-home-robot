@@ -11,9 +11,10 @@
 (sort 6 teapoy) (size 6 big) (at 6 6)
 (sort 7 can) (size 7 small) (color 7 green) (at 7 7)
 (sort 8 remotecontrol) (size 8 small) (color 8 black) (at 8 8)
-(sort 9 cup) (size 9 small) (color 9 yellow) (at 9 9)
+(sort 9 cup) (size 9 small) (color 9 yellow) (at 9 6)
     </info>
     <mis>
+    
     </mis>
     <err>
         <r></r>
@@ -28,6 +29,7 @@
     (:task (takeout X Y) (:cond (sort X can) (color X green) (sort Y refrigerator) (type Y container)))
     (:task (putdown X) (:cond (sort X remotecontrol) (color X black)))
     (:cons_notnot (:info (on X Y) (:cond (sort X cup) (color X yellow) (sort Y teapoy))))
+    (:task (goto X) (:cond (sort X chair)))
 )
 </instr>
 <nl>
@@ -35,5 +37,6 @@ The refrigerator is opened.
 Take out the green can from the refrigerator.
 Put down the black remotecontrol.
 There must be a yellow cup on the teapoy.
+Go to the chair.
 </nl>
 </test>

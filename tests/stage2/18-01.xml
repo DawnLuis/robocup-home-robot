@@ -9,16 +9,16 @@
 (sort 4 worktable) (size 4 big) (at 4 4)
 (sort 5 plant) (size 5 big) (at 5 5)
 (sort 6 sofa) (size 6 big) (at 6 6)
-(sort 7 book) (size 7 small) (color 7 red)
-(sort 8 cup) (size 8 small) (color 8 blue)
-(sort 9 can) (size 9 small) (color 9 green) (at 9 6)
+(sort 7 book) (size 7 small) (color 7 red) (at 7 7)
+(sort 8 cup) (size 8 small) (color 8 blue) (at 8 8)
+(sort 9 can) (size 9 small) (color 9 green)
     </info>
     <mis>
-    (at 7 4)
+    (inside 9 2)
     </mis>
     <err>
-        <r>(inside 8 3)</r>
-        <w>(inside 8 2)</w>
+        <r></r>
+        <w></w>
     </err>
     <extra>
     </extra>

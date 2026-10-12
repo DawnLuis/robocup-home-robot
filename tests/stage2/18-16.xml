@@ -11,15 +11,15 @@
 (sort 6 sofa) (size 6 big) (at 6 6)
 (sort 7 desk) (size 7 big) (at 7 7)
 (sort 8 book) (size 8 small) (color 8 red)
-(sort 9 can) (size 9 small) (color 9 blue)
-(sort 10 cup) (size 10 small) (color 10 green) (at 10 7)
+(sort 9 can) (size 9 small) (color 9 blue) (inside 9 2)
+(sort 10 cup) (size 10 small) (color 10 green)
     </info>
     <mis>
     (inside 8 2)
     </mis>
     <err>
-        <r>(inside 9 3)</r>
-        <w>(inside 9 2)</w>
+        <r>(inside 10 2)</r>
+        <w>(inside 10 3)</w>
     </err>
     <extra>
     </extra>
@@ -29,7 +29,7 @@
     (:info (inside X Y) (:cond (sort X can) (color X blue) (sort Y microwave) (type Y container)))
     (:task (puton X Y) (:cond (sort X book) (color X red) (sort Y worktable)))
     (:task (putin X Y) (:cond (sort X cup) (color X green) (sort Y cupboard) (type Y container)))
-    (:cons_notnot (:info (on X Y) (:cond (sort X book) (color X red) (sort Y plant))))
+    (:cons_notnot (:info (opened X) (:cond (sort X microwave))))
     (:cons_not (:task (putin X Y) (:cond (sort X can) (color X blue) (sort Y cupboard) (type Y container))))
     (:task (goto X) (:cond (sort X sofa)))
 )
@@ -38,7 +38,7 @@
 The blue can is in the microwave.
 Put the red book on the worktable.
 Put the green cup in the cupboard.
-There must be a red book on the plant.
+The microwave must be opened.
 Do not put the blue can in the cupboard.
 Go to the sofa.
 </nl>

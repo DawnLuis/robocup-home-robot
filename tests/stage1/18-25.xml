@@ -12,9 +12,10 @@
 (sort 7 desk) (size 7 big) (at 7 7)
 (sort 8 bottle) (size 8 small) (color 8 red) (at 8 8)
 (sort 9 remotecontrol) (size 9 small) (color 9 black) (at 9 9)
-(sort 10 book) (size 10 small) (color 10 yellow) (at 10 10)
+(sort 10 book) (size 10 small) (color 10 yellow) (at 10 4)
     </info>
     <mis>
+    
     </mis>
     <err>
         <r></r>
@@ -29,6 +30,7 @@
     (:task (takeout X Y) (:cond (sort X remotecontrol) (color X black) (sort Y refrigerator) (type Y container)))
     (:task (putin X Y) (:cond (sort X bottle) (color X red) (sort Y microwave) (type Y container)))
     (:cons_notnot (:info (on X Y) (:cond (sort X book) (color X yellow) (sort Y worktable))))
+    (:task (goto X) (:cond (sort X couch)))
 )
 </instr>
 <nl>
@@ -36,5 +38,6 @@ The refrigerator is closed.
 Take out the black remotecontrol from the refrigerator.
 Put the red bottle in the microwave.
 There must be a yellow book on the worktable.
+Go to the couch.
 </nl>
 </test>

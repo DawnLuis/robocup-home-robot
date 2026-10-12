@@ -11,9 +11,10 @@
 (sort 6 desk) (size 6 big) (at 6 6)
 (sort 7 remotecontrol) (size 7 small) (color 7 yellow) (at 7 7)
 (sort 8 cup) (size 8 small) (color 8 green) (at 8 8)
-(sort 9 bottle) (size 9 small) (color 9 white) (at 9 9)
+(sort 9 bottle) (size 9 small) (color 9 white) (at 9 4)
     </info>
     <mis>
+    
     </mis>
     <err>
         <r></r>
@@ -28,6 +29,7 @@
     (:task (takeout X Y) (:cond (sort X remotecontrol) (color X yellow) (sort Y cupboard) (type Y container)))
     (:task (putdown X) (:cond (sort X cup) (color X green)))
     (:cons_notnot (:info (on X Y) (:cond (sort X bottle) (color X white) (sort Y table))))
+    (:task (goto X) (:cond (sort X sofa)))
 )
 </instr>
 <nl>
@@ -35,5 +37,6 @@ The cupboard is opened.
 Take out the yellow remotecontrol from the cupboard.
 Put down the green cup.
 There must be a white bottle on the table.
+Go to the sofa.
 </nl>
 </test>

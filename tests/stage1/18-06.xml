@@ -11,9 +11,10 @@
 (sort 6 table) (size 6 big) (at 6 6)
 (sort 7 bottle) (size 7 small) (color 7 yellow) (at 7 7)
 (sort 8 remotecontrol) (size 8 small) (color 8 white) (at 8 8)
-(sort 9 book) (size 9 small) (color 9 green) (at 9 9)
+(sort 9 book) (size 9 small) (color 9 green) (at 9 4)
     </info>
     <mis>
+    
     </mis>
     <err>
         <r></r>

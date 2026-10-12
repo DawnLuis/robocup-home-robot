@@ -9,16 +9,16 @@
 (sort 4 desk) (size 4 big) (at 4 4)
 (sort 5 bed) (size 5 big) (at 5 5)
 (sort 6 table) (size 6 big) (at 6 6)
-(sort 7 book) (size 7 small) (color 7 green)
+(sort 7 book) (size 7 small) (color 7 green) (at 7 7)
 (sort 8 can) (size 8 small) (color 8 white)
-(sort 9 remotecontrol) (size 9 small) (color 9 blue) (at 9 6)
+(sort 9 remotecontrol) (size 9 small) (color 9 blue)
     </info>
     <mis>
-    (at 7 4)
+    (inside 8 2)
     </mis>
     <err>
-        <r>(inside 8 3)</r>
-        <w>(inside 8 2)</w>
+        <r>(inside 9 2)</r>
+        <w>(inside 9 3)</w>
     </err>
     <extra>
     </extra>

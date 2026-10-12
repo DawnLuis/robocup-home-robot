@@ -10,14 +10,14 @@
 (sort 5 desk) (size 5 big) (at 5 5)
 (sort 6 can) (size 6 small) (color 6 red)
 (sort 7 book) (size 7 small) (color 7 green)
-(sort 8 remotecontrol) (size 8 small) (color 8 white) (at 8 5)
+(sort 8 remotecontrol) (size 8 small) (color 8 white) (at 8 8)
     </info>
     <mis>
     (inside 6 2)
     </mis>
     <err>
-        <r>(inside 7 3)</r>
-        <w>(inside 7 2)</w>
+        <r>(inside 7 2)</r>
+        <w>(inside 7 3)</w>
     </err>
     <extra>
     </extra>

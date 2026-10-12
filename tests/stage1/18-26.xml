@@ -12,9 +12,10 @@
 (sort 7 table) (size 7 big) (at 7 7)
 (sort 8 cup) (size 8 small) (color 8 yellow) (at 8 8)
 (sort 9 book) (size 9 small) (color 9 blue) (at 9 9)
-(sort 10 can) (size 10 small) (color 10 green) (at 10 10)
+(sort 10 can) (size 10 small) (color 10 green) (at 10 7)
     </info>
     <mis>
+    
     </mis>
     <err>
         <r></r>

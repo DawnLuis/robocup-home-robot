@@ -2,7 +2,7 @@
 <test>
 <env mis="on" err="on" ans="on">
     <info>
-    (hold 0) (plate 0) (at 0 5)
+    (hold 0) (plate 8) (at 0 5)
 (sort 1 human) (size 1 big) (at 1 1)
 (sort 2 microwave) (size 2 big) (type 2 container) (opened 2) (at 2 2)
 (sort 3 closet) (size 3 big) (type 3 container) (closed 3) (at 3 3)
@@ -10,14 +10,14 @@
 (sort 5 worktable) (size 5 big) (at 5 5)
 (sort 6 book) (size 6 small) (color 6 black)
 (sort 7 cup) (size 7 small) (color 7 yellow)
-(sort 8 bottle) (size 8 small) (color 8 white) (at 8 5)
+(sort 8 bottle) (size 8 small) (color 8 white)
     </info>
     <mis>
     (inside 6 2)
     </mis>
     <err>
-        <r>(inside 7 3)</r>
-        <w>(inside 7 2)</w>
+        <r>(inside 7 2)</r>
+        <w>(inside 7 3)</w>
     </err>
     <extra>
     </extra>

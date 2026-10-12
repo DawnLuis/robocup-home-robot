@@ -13,14 +13,14 @@
 (sort 8 table) (size 8 big) (at 8 8)
 (sort 9 bottle) (size 9 small) (color 9 black)
 (sort 10 can) (size 10 small) (color 10 red)
-(sort 11 book) (size 11 small) (color 11 green) (at 11 8)
+(sort 11 book) (size 11 small) (color 11 green) (at 11 6)
     </info>
     <mis>
-    (at 9 5)
+    (inside 9 2)
     </mis>
     <err>
-        <r>(inside 10 3)</r>
-        <w>(inside 10 2)</w>
+        <r>(inside 10 2)</r>
+        <w>(inside 10 3)</w>
     </err>
     <extra>
     </extra>

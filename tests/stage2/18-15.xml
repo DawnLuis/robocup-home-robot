@@ -11,14 +11,14 @@
 (sort 6 chair) (size 6 big) (at 6 6)
 (sort 7 cup) (size 7 small) (color 7 black)
 (sort 8 bottle) (size 8 small) (color 8 yellow)
-(sort 9 remotecontrol) (size 9 small) (color 9 red) (at 9 6)
+(sort 9 remotecontrol) (size 9 small) (color 9 red) (at 9 9)
     </info>
     <mis>
-    (at 7 4)
+    (inside 7 2)
     </mis>
     <err>
-        <r>(inside 8 3)</r>
-        <w>(inside 8 2)</w>
+        <r>(inside 8 2)</r>
+        <w>(inside 8 3)</w>
     </err>
     <extra>
     </extra>

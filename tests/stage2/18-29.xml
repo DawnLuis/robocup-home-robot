@@ -11,16 +11,16 @@
 (sort 6 chair) (size 6 big) (at 6 6)
 (sort 7 sofa) (size 7 big) (at 7 7)
 (sort 8 bed) (size 8 big) (at 8 8)
-(sort 9 book) (size 9 small) (color 9 yellow)
+(sort 9 book) (size 9 small) (color 9 yellow) (at 9 9)
 (sort 10 remotecontrol) (size 10 small) (color 10 green)
-(sort 11 cup) (size 11 small) (color 11 red) (at 11 8)
+(sort 11 cup) (size 11 small) (color 11 red) (at 11 6)
     </info>
     <mis>
-    (at 9 5)
+    (inside 10 2)
     </mis>
     <err>
-        <r>(inside 10 3)</r>
-        <w>(inside 10 2)</w>
+        <r></r>
+        <w></w>
     </err>
     <extra>
     </extra>

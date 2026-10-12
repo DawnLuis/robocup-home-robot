@@ -11,9 +11,10 @@
 (sort 6 bed) (size 6 big) (at 6 6)
 (sort 7 bottle) (size 7 small) (color 7 red) (at 7 7)
 (sort 8 book) (size 8 small) (color 8 black) (at 8 8)
-(sort 9 can) (size 9 small) (color 9 blue) (at 9 9)
+(sort 9 can) (size 9 small) (color 9 blue) (inside 9 2)
     </info>
     <mis>
+    
     </mis>
     <err>
         <r></r>
@@ -28,6 +29,7 @@
     (:task (takeout X Y) (:cond (sort X bottle) (color X red) (sort Y closet) (type Y container)))
     (:task (putdown X) (:cond (sort X book) (color X black)))
     (:cons_notnot (:info (inside X Y) (:cond (sort X can) (color X blue) (sort Y closet) (type Y container))))
+    (:task (goto X) (:cond (sort X worktable)))
 )
 </instr>
 <nl>
@@ -35,5 +37,6 @@ The microwave is closed.
 Take out the red bottle from the closet.
 Put down the black book.
 There must be a blue can in the closet.
+Go to the worktable.
 </nl>
 </test>
