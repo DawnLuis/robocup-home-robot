@@ -12,6 +12,11 @@
       g++ -O2 -std=c++11 -I include -o example example/*.cpp \
           lib/libframe.a lib/libutility.a -lboost_thread -lboost_chrono -lpthread
       ```
+      （此编译方式**已在本机对 2025 与 2026 两个官方平台验证通过**：2026 平台自出 stage1
+      跑出 6464，与 2025 逐题对比仅 3 题各 +2，零回归）
+- [ ] 若改用平台的 CMake 工程：**2026 包顶层**写的是 `CMAKE_MINIMUM_REQUIRED(VERSION 2.6.0)` ——
+      在比赛环境（Ubuntu 18.04 + CMake 3.10）正常；若在你本机的新版 CMake（≥4.0）上配置会报错，
+      加参数 `-DCMAKE_POLICY_VERSION_MINIMUM=3.5` 即可（与比赛无关，是平台包的老声明问题）
 - [ ] **`chmod +x res/iclingo`** ← 32 位静态二进制，拷过去常丢执行权限，
       丢了会**全部行动返回 false、全场 0 分**（血泪教训，必查）
 - [ ] 跑一遍自出题确认得分正常：
