@@ -2,44 +2,100 @@
 <test>
 <env mis="on" err="on" ans="on">
     <info>
-    (hold 0) (plate 0) (at 0 5)
+    (hold 0) (plate 27) (at 0 73)
 (sort 1 human) (size 1 big) (at 1 1)
-(sort 2 closet) (size 2 big) (at 2 2) (type 2 container) (closed 2)
-(sort 3 cupboard) (size 3 big) (at 3 3) (type 3 container) (opened 3)
-(sort 4 desk) (size 4 big) (at 4 4)
-(sort 5 bed) (size 5 big) (at 5 5)
-(sort 6 plant) (size 6 big) (at 6 6)
-(sort 7 couch) (size 7 big) (at 7 7)
-(sort 8 bottle) (size 8 small) (color 8 yellow) (at 8 8)
-(sort 9 cup) (size 9 small) (color 9 black)
-(sort 10 book) (size 10 small) (color 10 white) (at 10 4)
+(sort 2 desk) (size 2 big) (at 2 73)
+(sort 3 television) (size 3 big) (at 3 80)
+(sort 4 chair) (size 4 big) (at 4 81)
+(sort 5 bed) (size 5 big) (at 5 35)
+(sort 6 sofa) (size 6 big) (at 6 72)
+(sort 7 table) (size 7 big) (at 7 16)
+(sort 8 worktable) (size 8 big) (at 8 69)
+(sort 9 plant) (size 9 big) (at 9 105)
+(sort 10 teapoy) (size 10 big) (at 10 46)
+(sort 11 couch) (size 11 big) (at 11 86)
+(sort 12 airconditioner) (size 12 big) (at 12 47)
+(sort 13 washmachine) (size 13 big) (at 13 12)
+(sort 14 refrigerator) (size 14 big) (at 14 89) (type 14 container) (closed 14)
+(sort 15 closet) (size 15 big) (at 15 84) (type 15 container) (closed 15)
+(sort 16 cupboard) (size 16 big) (at 16 32) (type 16 container) (opened 16)
+(sort 17 microwave) (size 17 big) (at 17 94) (type 17 container) (opened 17)
+(sort 18 closet) (size 18 big) (at 18 88) (type 18 container) (closed 18)
+(sort 20 book) (size 20 small) (color 20 red) (at 20 52)
+(sort 21 book) (size 21 small) (color 21 green) (at 21 2)
+(sort 22 book) (size 22 small) (color 22 yellow) (at 22 96)
+(sort 23 book) (size 23 small) (color 23 blue)
+(sort 24 can) (size 24 small) (color 24 red) (at 24 42)
+(sort 25 can) (size 25 small) (color 25 green) (at 25 109)
+(sort 26 can) (size 26 small) (color 26 blue) (at 26 67)
+(sort 27 can) (size 27 small) (color 27 black)
+(sort 28 bottle) (size 28 small) (color 28 red) (at 28 97)
+(sort 29 bottle) (size 29 small) (color 29 green) (at 29 37)
+(sort 30 bottle) (size 30 small) (color 30 blue) (at 30 45)
+(sort 31 bottle) (size 31 small) (color 31 white) (at 31 33)
+(sort 32 cup) (size 32 small) (color 32 red) (at 32 31)
+(sort 33 cup) (size 33 small) (color 33 green) (at 33 3)
+(sort 34 cup) (size 34 small) (color 34 blue) (at 34 90)
+(sort 35 cup) (size 35 small) (color 35 black) (at 35 103)
+(sort 36 remotecontrol) (size 36 small) (color 36 white) (at 36 104)
+(sort 37 remotecontrol) (size 37 small) (color 37 black) (at 37 112)
+(sort 38 book) (size 38 small) (color 38 white) (at 38 5)
+(sort 39 can) (size 39 small) (color 39 white)
     </info>
     <mis>
-    
+    (inside 23 14)
     </mis>
     <err>
-        <r>(inside 9 2)</r>
-        <w>(inside 9 3)</w>
+        <r>(at 39 79)</r>
+        <w>(at 39 72)</w>
     </err>
     <extra>
     </extra>
 </env>
 <instr>
 (:ins
-    (:info (closed X) (:cond (sort X closet)))
-    (:task (takeout X Y) (:cond (sort X bottle) (color X yellow) (sort Y closet) (type Y container)))
+    (:task (puton X Y) (:cond (sort X can) (color X blue) (sort Y television)))
+    (:task (puton X Y) (:cond (sort X cup) (color X green) (sort Y worktable)))
     (:task (putin X Y) (:cond (sort X cup) (color X black) (sort Y cupboard) (type Y container)))
-    (:cons_notnot (:info (on X Y) (:cond (sort X book) (color X white) (sort Y desk))))
-    (:cons_not (:task (putin X Y) (:cond (sort X cup) (color X black) (sort Y closet) (type Y container))))
-    (:task (goto X) (:cond (sort X bed)))
+    (:task (puton X Y) (:cond (sort X book) (color X yellow) (sort Y bed)))
+    (:task (puton X Y) (:cond (sort X cup) (color X blue) (sort Y couch)))
+    (:task (goto X) (:cond (sort X couch)))
+    (:task (puton X Y) (:cond (sort X bottle) (color X white) (sort Y bed)))
+    (:task (putin X Y) (:cond (sort X bottle) (color X green) (sort Y cupboard) (type Y container)))
+    (:task (puton X Y) (:cond (sort X bottle) (color X red) (sort Y sofa)))
+    (:task (puton X Y) (:cond (sort X book) (color X green) (sort Y chair)))
+    (:task (putin X Y) (:cond (sort X book) (color X white) (sort Y cupboard) (type Y container)))
+    (:task (puton X Y) (:cond (sort X bottle) (color X blue) (sort Y desk)))
+    (:task (pickup X) (:cond (sort X remotecontrol) (color X white)))
+    (:task (close X) (:cond (sort X microwave) (type X container)))
+    (:cons_not (:task (open X) (:cond (sort X refrigerator) (type X container))))
+    (:cons_not (:task (open X) (:cond (sort X closet) (type X container))))
+    (:cons_not (:task (puton X Y) (:cond (sort X book) (color X red) (sort Y couch))))
+    (:cons_not (:task (puton X Y) (:cond (sort X book) (color X blue) (sort Y plant))))
+    (:cons_notnot (:info (closed X) (:cond (sort X closet))))
+    (:cons_notnot (:info (opened X) (:cond (sort X cupboard))))
 )
 </instr>
 <nl>
-The closet is closed.
-Take out the yellow bottle from the closet.
+Put the blue can on the television.
+Put the green cup on the worktable.
 Put the black cup in the cupboard.
-There must be a white book on the desk.
-Do not put the black cup in the closet.
-Go to the bed.
+Put the yellow book on the bed.
+Put the blue cup on the couch.
+Go to the couch.
+Put the white bottle on the bed.
+Put the green bottle in the cupboard.
+Put the red bottle on the sofa.
+Put the green book on the chair.
+Put the white book in the cupboard.
+Put the blue bottle on the desk.
+Pick up the white remotecontrol.
+Close the microwave.
+Do not open the refrigerator.
+Do not open the closet.
+Do not put the red book on the couch.
+Do not put the blue book on the plant.
+The closet must be closed.
+The cupboard must be opened.
 </nl>
 </test>

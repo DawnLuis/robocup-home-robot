@@ -77,7 +77,7 @@ def gen_one(seed):
     tasks.append(('pickup', 36, None, 'remotecontrol', 'white', None))
     tasks.append(('goto', None, 11, None, None, 'couch'))     # goto couch
     # goto 插到中段 -> 后面还有搬运任务, 会把机器人带离 couch
-    tasks.insert(len(tasks) // 2, tasks.pop())
+    tasks.insert(random.Random(seed * 3 + 5).randint(3, 8), tasks.pop())
 
     # ---------- 坑 A 收尾: open/close 状态任务 ----------
     tasks.append(('close', None, 17, None, None, 'microwave'))  # close microwave(opened -> 真需关门)
@@ -156,28 +156,43 @@ def cons_nl(c):
     if k == 'cons_notnot_opened': return 'The cupboard must be opened.'
     raise ValueError(k)
 
+def scene_pos(seed):
+    """每题一套位置: 物体位置随机排列(人工看不出模板化); 大物体位置互不相同"""
+    rnd = random.Random(seed * 131 + 7)
+    perm = list(range(2, 120))
+    rnd.shuffle(perm)
+    pos = {}
+    for i, s in BIGS:                     pos[i] = perm.pop()
+    for i, s, st in CONTS:                pos[i] = perm.pop()
+    for i, s, c in SMALLS:
+        if i == PLATE_OBJ: continue
+        pos[i] = perm.pop()
+    return pos
+
 def render(seed, tasks, cons):
+    pos = scene_pos(seed)
     L = ['<?xml version="1.0" encoding="utf-8"?>', '<test>', '<env mis="on" err="on" ans="on">', '    <info>']
-    L.append('    (hold 0) (plate %d) (at 0 1)' % PLATE_OBJ)
+    L.append('    (hold 0) (plate %d) (at 0 %d)' % (PLATE_OBJ, pos[2]))
     L.append('(sort 1 human) (size 1 big) (at 1 1)')
     for i, s in BIGS:
-        L.append('(sort %d %s) (size %d big) (at %d %d)' % (i, s, i, i, i))
+        L.append('(sort %d %s) (size %d big) (at %d %d)' % (i, s, i, i, pos[i]))
     for i, s, st in CONTS:
-        L.append('(sort %d %s) (size %d big) (at %d %d) (type %d container) (%s %d)' % (i, s, i, i, i, i, st, i))
+        L.append('(sort %d %s) (size %d big) (at %d %d) (type %d container) (%s %d)' % (i, s, i, i, pos[i], i, st, i))
     # 小物体: TRAP_BOOK 与随机 1 个藏进 mis; 其余位置写 info
     hide = {TRAP_BOOK: ('inside', TRAP_CONT)}               # -> mis 段(需 AskLoc)
     cand = [i for i, s, c in SMALLS if i not in (TRAP_BOOK, PLATE_OBJ, 22)]
     err_obj = random.Random(seed * 7 + 1).choice(cand)      # -> err 段 r=正确 / w=错误
-    err_r = 'at %d %d' % (err_obj, err_obj)                 # 真实位置 = 自己的号
-    wrong = (err_obj + 7) % 13 + 2
-    err_w = 'at %d %d' % (err_obj, wrong)                   # 误导位置(普通位置, 不指向被保护容器——避免死局)
+    _p = scene_pos(seed)
+    err_r = 'at %d %d' % (err_obj, _p[err_obj])             # 真实位置
+    _w = _p[6] if _p[6] != _p[err_obj] else _p[7]           # 误导位置(普通大物体处, 不指向被保护容器——避免死局)
+    err_w = 'at %d %d' % (err_obj, _w)
     for i, s, c in SMALLS:
         if i == PLATE_OBJ:
             L.append('(sort %d %s) (size %d small) (color %d %s)' % (i, s, i, i, c))   # 在盘上, 无 at
         elif i in hide or i == err_obj:
             L.append('(sort %d %s) (size %d small) (color %d %s)' % (i, s, i, i, c))   # 位置进 mis/err
         else:
-            L.append('(sort %d %s) (size %d small) (color %d %s) (at %d %d)' % (i, s, i, i, c, i, i))
+            L.append('(sort %d %s) (size %d small) (color %d %s) (at %d %d)' % (i, s, i, i, c, i, pos[i]))
     L += ['    </info>', '    <mis>']
     for oid, (kind, val) in sorted(hide.items()):
         L.append('    (%s %d %d)' % (kind, oid, val))
