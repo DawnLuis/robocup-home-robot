@@ -195,7 +195,16 @@ void InstructionParser::parse_instructions(const std::string& ins_str) {
     std::vector<std::string> tokens = split_parentheses(content);
 
     for (const auto& token : tokens) {
-        if (token.find("(:cons_not") == 0) {
+        // ★ 必须先判 (:cons_notnot —— 它是 13 个字符, 且以 (:cons_not 为前缀;
+        //   旧代码 substr(10) 会切出 "not (:info ...)", parse_rule 既非 (:info 也非 (:task
+        //   开头 → 整条规则被丢弃: FactRequired 从未产生,
+        //   is_object_protected / breaks_required_fact 全程空转(cons_notnot 保护从上线起失效)。
+        if (token.find("(:cons_notnot") == 0) {
+            std::string inner = token.substr(13); // 去掉 (:cons_notnot
+            if (!inner.empty() && inner.back() == ')') inner.pop_back();
+            inner = trim(inner);
+            parse_rule(inner, false, true);   // is_double_neg = true → FactRequired
+        } else if (token.find("(:cons_not") == 0) {
             std::string inner = token.substr(10); // 去掉 (:cons_not
             if (!inner.empty() && inner.back() == ')') inner.pop_back();
             inner = trim(inner);

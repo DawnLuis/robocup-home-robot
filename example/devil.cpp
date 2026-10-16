@@ -41,7 +41,12 @@ Color Devil::get_color_from_string(const std::string& color_str) const {
 static bool open_violates_impl(InstructionParser& ip, EnvironmentManager& env, int container_id) {
     const Object* c = env.get_object(container_id);
     if (!c) return false;
-    return ip.violates_info_constraint(c->type, c->color, ObjectType::Unknown, "opened");
+    // ① cons_not(:info (opened X)) —— 信息式禁令
+    if (ip.violates_info_constraint(c->type, c->color, ObjectType::Unknown, "opened")) return true;
+    // ② cons_not(:task (open X)) —— 任务式禁令(95.xml "Do not open the refrigerator")
+    //   旧代码只查① → 这类禁令漏网, 为取物直接开了被禁的冰箱
+    if (!ip.is_task_allowed("open", c)) return true;
+    return false;
 }
 
 void Devil::Plan()
@@ -424,21 +429,20 @@ bool Devil::execute_putdown_task(EnvironmentManager& env, const Predicate& task)
 
 // 改进的puton任务执行
 bool Devil::execute_puton_task(EnvironmentManager& env, const Predicate& task) {
-    int small_obj_id = -1;
     int big_obj_id = -1;
 
     cout << "  解析puton任务条件:" << endl;
-    
+
     // 先收集所有X的条件
     ObjectType x_type = ObjectType::Unknown;
     Color x_color = Color::Unknown;
-    
+
     // 先收集所有Y的条件
     ObjectType y_type = ObjectType::Unknown;
-    
+
     for (const auto& cond : task.conds) {
         cout << "    条件: var=" << cond.var << ", attr=" << cond.attr << ", value=" << cond.value << endl;
-        
+
         if (cond.var == "X") {
             if (cond.attr == "sort") {
                 x_type = ins_parser.str_to_object_type(cond.value);
@@ -454,108 +458,103 @@ bool Devil::execute_puton_task(EnvironmentManager& env, const Predicate& task) {
         }
     }
 
-    // 使用组合条件查找物体
-    if (x_type != ObjectType::Unknown) {
-        cout << "    使用组合条件查找X: type=" << static_cast<int>(x_type) << ", color=" << static_cast<int>(x_color) << endl;
-        // ★ 先检查当前手持物体是否已满足条件，避免无谓 PutDown+重选
-        small_obj_id = try_held_object(env, x_type, x_color);
-        if (small_obj_id == -1) {
-            small_obj_id = find_object_by_conditions(env, x_type, x_color, y_type, "on");
-        }
-    }
-    
+    // Y 只查一次(目标位置固定)
     if (y_type != ObjectType::Unknown) {
         cout << "    查找Y: type=" << static_cast<int>(y_type) << endl;
         big_obj_id = find_object_by_type(env, y_type);
     }
-
-    if (small_obj_id == -1) {
-        cout << "  错误: 无法找到小物体 X。" << endl;
-        return false;
-    }
     if (big_obj_id == -1) {
         cout << "  错误: 无法找到大物体 Y。" << endl;
-        // 额外调试：列出所有物体
-        cout << "  所有物体: " << endl;
-        for (const auto& pair : env.get_objects()) {
-            if (pair.second.id != 0) { // 跳过机器人
-                cout << "    #" << pair.first << ": type=" << static_cast<int>(pair.second.type);
-                switch(pair.second.type) {
-                    case ObjectType::Worktable: cout << "(worktable)"; break;
-                    case ObjectType::Table: cout << "(table)"; break;
-                    case ObjectType::Closet: cout << "(closet)"; break;
-                    case ObjectType::Microwave: cout << "(microwave)"; break;
-                    case ObjectType::Sofa: cout << "(sofa)"; break;
-                    case ObjectType::Human: cout << "(human)"; break;
-                    case ObjectType::Teapoy: cout << "(teapoy)"; break;
-                    default: cout << "(unknown)"; break;
-                }
-                cout << ", loc=" << (pair.second.valid_at ? std::to_string(pair.second.at) : "N/A") << endl;
-            }
-        }
+        return false;
+    }
+    if (x_type == ObjectType::Unknown) {
+        cout << "  错误: 无法确定X类型。" << endl;
         return false;
     }
 
-    cout << "  执行 puton: 将物体 #" << small_obj_id << " 放到 #" << big_obj_id << " 上" << endl;
-
-    // 检查小物体是否在容器中
-    const Object* small_obj = env.get_object(small_obj_id);
-    if (small_obj->valid_inside) {
-        cout << "  物体 #" << small_obj_id << " 在容器 #" << small_obj->inside << " 中，需要先取出" << endl;
-        if (!execute_takeout(env, small_obj_id, small_obj->inside, true, true)) {
-            cout << "  取出物体失败，无法执行 puton" << endl;
-            return false;
-        }
-    }
-
-    // 如果机器人已经拿着目标物体，直接执行放置
-    int held_id = env.get_held_object();
-    if (held_id != small_obj_id) {
-        // 先放下当前手持物体（如果有）
-        if (env.is_holding()) {
-            cout << "  放下当前手持物体 #" << held_id << endl;
-            PutDown(held_id);
-            env.update_after_putdown(held_id);
-        }
-        
-        // 拿起目标物体
-        if (!execute_pickup(env, small_obj_id)) {
-            return false;
-        }
-    }
-
-    // 移动到目标位置
     int target_loc = env.get_object_location(big_obj_id);
     if (target_loc == -1) {
         cout << "  错误: 无法确定目标位置。" << endl;
         return false;
     }
 
-    int robot_loc = env.get_robot_location();
-    if (robot_loc != target_loc) {
-        cout << "  移动机器人到位置 " << target_loc << endl;
-        if (!Move(target_loc)) {
+    // ★ 候选重试循环(与 putin 对称): 某候选取不出/放不下 → 换下一个候选
+    //   (95.xml 实锤: "Put a book on the bed" 选中藏在禁开冰箱里的书, 取物被拦后
+    //    整条任务丢弃(白丢40分); 换候选则只需开 closet, 不毁约又能拿分)
+    std::vector<int> tried;
+    for (int attempt = 0; attempt < 6; ++attempt) {
+        int small_obj_id = try_held_object(env, x_type, x_color);
+        if (small_obj_id != -1 &&
+            std::find(tried.begin(), tried.end(), small_obj_id) != tried.end()) {
+            small_obj_id = -1;
+        }
+        if (small_obj_id != -1) {
+            const Object* ho = env.get_object(small_obj_id);
+            if (ho && ins_parser.violates_info_constraint(ho->type, ho->color, y_type, "on")) {
+                cout << "  手持物体 #" << small_obj_id << " 放到目标会违反cons_not, 不复用" << endl;
+                small_obj_id = -1;
+            }
+        }
+        if (small_obj_id == -1) {
+            small_obj_id = find_object_by_conditions(env, x_type, x_color, y_type, "on", tried);
+        }
+        if (small_obj_id == -1) {
+            cout << "  错误: 无更多可用候选X。" << endl;
             return false;
         }
-        env.update_after_move(target_loc);
-    }
+        tried.push_back(small_obj_id);
+        cout << "  执行 puton[候选" << attempt + 1 << "]: 将物体 #" << small_obj_id
+             << " 放到 #" << big_obj_id << " 上" << endl;
 
-    // 确保机器人确实移动到了正确位置
-    robot_loc = env.get_robot_location();
-    if (robot_loc != target_loc) {
-        cout << "  错误: 机器人位置 (" << robot_loc << ") 与目标位置 (" << target_loc << ") 不匹配！" << endl;
-        return false;
-    }
+        // 检查小物体是否在容器中
+        const Object* small_obj = env.get_object(small_obj_id);
+        if (small_obj->valid_inside) {
+            cout << "  物体 #" << small_obj_id << " 在容器 #" << small_obj->inside << " 中，需要先取出" << endl;
+            if (!execute_takeout(env, small_obj_id, small_obj->inside, true, true)) {
+                cout << "  #" << small_obj_id << " 取出失败, 换候选" << endl;
+                continue;
+            }
+        }
 
-    // 执行放置
-    bool success = PutDown(small_obj_id);
-    if (success) {
-        env.update_after_puton(small_obj_id, big_obj_id);
-        cout << "  成功完成 puton 任务。" << endl;
-    } else {
-        cout << "  PutOn 失败！" << endl;
+        // 如果机器人已经拿着目标物体，直接执行放置
+        int held_id = env.get_held_object();
+        if (held_id != small_obj_id) {
+            if (env.is_holding()) {
+                cout << "  放下当前手持物体 #" << held_id << endl;
+                PutDown(held_id);
+                env.update_after_putdown(held_id);
+            }
+            if (!execute_pickup(env, small_obj_id)) {
+                cout << "  #" << small_obj_id << " 拾取失败, 换候选" << endl;
+                continue;
+            }
+        }
+
+        // 移动到目标位置
+        int robot_loc = env.get_robot_location();
+        if (robot_loc != target_loc) {
+            cout << "  移动机器人到位置 " << target_loc << endl;
+            if (!Move(target_loc)) {
+                return false;
+            }
+            env.update_after_move(target_loc);
+        }
+        robot_loc = env.get_robot_location();
+        if (robot_loc != target_loc) {
+            cout << "  错误: 机器人位置 (" << robot_loc << ") 与目标位置 (" << target_loc << ") 不匹配！" << endl;
+            return false;
+        }
+
+        bool success = PutDown(small_obj_id);
+        if (success) {
+            env.update_after_puton(small_obj_id, big_obj_id);
+            cout << "  成功完成 puton 任务。" << endl;
+            return true;
+        }
+        cout << "  PutOn #" << small_obj_id << " 失败"
+             << (attempt < 5 ? "，换候选重试" : "，放弃") << endl;
     }
-    return success;
+    return false;
 }
 // 改进的putin任务执行
 bool Devil::execute_putin_task(EnvironmentManager& env, const Predicate& task) {
@@ -1026,80 +1025,73 @@ int Devil::find_object_by_conditions(EnvironmentManager& env, ObjectType type, C
     cout << endl;
 
     std::string srel = rel ? rel : "";
-    // ★ P0检索路径感知: 候选藏在"被cons_not禁止打开"的关容器里 → 取出必毁opened约束(-20)
-    //   有干净候选时绝不碰禁门, 全排列兜底才用它(净赚+40-20时才值)
+
+    // P0检索路径感知: 候选藏在"被cons_not禁止打开"的关容器里 → 取出必毁opened约束
     auto retrieval_blocked = [&](const Object& obj) -> bool {
         if (!obj.valid_inside) return false;
         const Object* c = env.get_object(obj.inside);
         if (!c) return false;
-        if (c->state == ContainerState::Opened) return false; // 已开门不毁约束
+        if (c->state == ContainerState::Opened) return false;
         return open_violates_impl(ins_parser, env, obj.inside);
     };
-    // 候选过滤: cons_not禁令(X放Y违规) + cons_notnot保护(搬走毁约束)
-    auto candidate_ok = [&](const Object& obj) -> bool {
+
+    // ★★ 本轮核心改动: "硬过滤" → "打分排序"
+    //   评分公式给出经济账: 完成目标 +40, 毁约束 -20 (每个)。
+    //   旧逻辑把受保护/会违约的候选一律硬过滤 → 若是唯一候选,
+    //   整条目标直接丢掉40分(94/98.xml 实锤); 正确姿势 = 选代价最小的,
+    //   即使付出毁约代价, 净收益 +40-20 = +20 > 不做的 0。
+    auto candidate_cost = [&](const Object& obj) -> int {
+        int cost = 0;
         if (!srel.empty() && target_type != ObjectType::Unknown &&
             ins_parser.violates_info_constraint(obj.type, obj.color, target_type, srel)) {
-            cout << "    跳过 #" << obj.id << ": 放到目标会违反cons_not(" << srel << ")" << endl;
-            return false;
+            cout << "    #" << obj.id << " 代价-20: 放到目标会违反cons_not(" << srel << ")" << endl;
+            cost -= 20;
         }
         if (target_type != ObjectType::Unknown &&
             ins_parser.breaks_required_fact(obj.type, obj.color, target_type)) {
-            cout << "    跳过 #" << obj.id << ": 搬走会破坏cons_notnot(目标!=锁定位置)" << endl;
-            return false;
+            cout << "    #" << obj.id << " 代价-20: 搬走会破坏cons_notnot(目标!锁定位置)" << endl;
+            cost -= 20;
         }
         if (color == Color::Unknown && is_object_protected(env, obj.id, type)) {
-            cout << "    跳过受约束保护物体 #" << obj.id << endl;
-            return false;
+            cout << "    #" << obj.id << " 代价-20: 受cons_notnot保护" << endl;
+            cost -= 20;
         }
-        return true;
+        return cost;
     };
 
-    // 第一遍: 优先找"可自由拿起"的物体(不在盘上/容器中/未被手持)
-    // ★ 避免误选盘上物体(拿它会破坏 plate 约束)或容器内物体
-    for (const auto& pair : env.get_objects()) {
-        const Object& obj = pair.second;
-        if (obj.id == 0) continue;
-        if (std::find(exclude.begin(), exclude.end(), obj.id) != exclude.end()) continue; // 本任务已试败
-        if (obj.held_by_robot) continue;
-        if (obj.on_plate) continue;       // 盘上: 留给第二遍
-        if (obj.valid_inside) continue;   // 容器内: 留给第二遍
-
-        bool type_match = (obj.type == type);
-        bool color_match = (color == Color::Unknown || obj.color == color);
-        if (type_match && color_match && candidate_ok(obj)) {
-            cout << "    第一遍找到可自由拿起物体 #" << obj.id << endl;
-            return obj.id;
-        }
-    }
-
-    // 第二遍 fallback: 该类型物体都在盘上/容器中, 只能选盘上/容器内的
-    // ★ 再分层: 藏禁门后的候选垫底(2b), 普通盘上/容器内优先(2a)
-    int blocked_pick = -1;
+    // 遍历全部匹配候选, 取"代价最小"者; 代价相同时层级小者优先(自由物体 > 盘上/容器内 > 禁门内)
+    int best_id = -1, best_rank = 99;
+    long long best_cost = -1000000;
     for (const auto& pair : env.get_objects()) {
         const Object& obj = pair.second;
         if (obj.id == 0) continue;
         if (std::find(exclude.begin(), exclude.end(), obj.id) != exclude.end()) continue;
         if (obj.held_by_robot) continue;
+        if (obj.type != type) continue;
+        if (!(color == Color::Unknown || obj.color == color)) continue;
 
-        bool type_match = (obj.type == type);
-        bool color_match = (color == Color::Unknown || obj.color == color);
-        if (type_match && color_match && candidate_ok(obj)) {
-            if (retrieval_blocked(obj)) {
-                if (blocked_pick == -1) blocked_pick = obj.id;
-                continue;
-            }
-            cout << "    第二遍找到物体 #" << obj.id << " (盘上/容器内)" << endl;
-            return obj.id;
-        }
+        int rank = 0;
+        if (obj.on_plate || obj.valid_inside) rank = 1;
+        if (retrieval_blocked(obj)) rank = 2;
+        long long cost = candidate_cost(obj);
+
+        bool better = (best_id == -1) || (cost > best_cost) ||
+                      (cost == best_cost && rank < best_rank);
+        if (better) { best_id = obj.id; best_cost = cost; best_rank = rank; }
     }
-    if (blocked_pick != -1) {
-        cout << "    仅剩禁门内候选 #" << blocked_pick << ", 权衡后选用(取物需毁约束)" << endl;
-        return blocked_pick;
+
+    if (best_id == -1) {
+        cout << "  未找到匹配物体" << endl;
+        return -1;
     }
-    cout << "  未找到匹配物体" << endl;
-    return -1;
+    if (best_cost < 0) {
+        cout << "    无干净候选, 权衡后选用代价最小的 #" << best_id
+             << " (代价" << best_cost << ", 完成目标+40 > 毁约代价" << -best_cost << ")" << endl;
+    } else {
+        cout << "    选中候选 #" << best_id << " (无代价, 层" << best_rank << ")" << endl;
+    }
+    return best_id;
 }
-
 // 以下保留原有的辅助函数，但移除重复的Fini函数
 
 // --- 辅助函数 ---
