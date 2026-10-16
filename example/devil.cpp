@@ -4,6 +4,19 @@
 // Repo   : https://github.com/DawnLuis/robocup-home-robot
 //------------------------------------------------------------------
 #include "devil.hpp"
+#include <chrono>
+
+// ★★ 自计时提前收工 (避免被平台 5s 强杀后污染后续题)
+//   实测: 单独跑大题=410分/52动作; 跟在超时题后面连跑 → -4分/1个动作
+//   根因: 平台发 Fini 后客户端仍在发动作, 状态没收拾干净, 启动/进行中状态跨题串。
+static std::chrono::steady_clock::time_point g_plan_start;
+static bool g_plan_timed = false;
+static double devil_elapsed_sec() {
+    if (!g_plan_timed) return 0.0;
+    return std::chrono::duration<double>(std::chrono::steady_clock::now() - g_plan_start).count();
+}
+// 实际可用窗口约 5s(平台计时含接收/初始化), 留余量提前收工
+static const double DEVIL_TIME_BUDGET_SEC = 4.35;
 #include <iostream>
 #include <stack>
 #include <queue>
@@ -86,6 +99,8 @@ void Devil::Plan()
     //   → 同步给成员, 否则cons_notnot保护/禁令感知全部静默失效
     this->ins_parser = ins_parser;
 
+    g_plan_start = std::chrono::steady_clock::now();
+    g_plan_timed = true;
     cout << "\n=== 开始任务规划与执行 ===" << endl;
 
     // 任务分组和优先级排序
@@ -111,16 +126,28 @@ void Devil::Plan()
 
         // 先执行非状态任务（putin/takeout 等可能需要容器打开）
         for (const auto& rule : tasks) {
+            if (devil_elapsed_sec() > DEVIL_TIME_BUDGET_SEC) {
+                cout << "★ 接近 5s 限时(已用 " << devil_elapsed_sec() << "s)，提前收工避免被强杀" << endl;
+                break;
+            }
             execute_task_with_constraints(env, ins_parser, rule);
         }
 
         // 再执行状态任务（close/opened），避免提前关闭容器导致后续操作失败
         for (const auto& rule : state_tasks) {
+            if (devil_elapsed_sec() > DEVIL_TIME_BUDGET_SEC) {
+                cout << "★ 接近 5s 限时，跳过剩余状态任务" << endl;
+                break;
+            }
             execute_state_task(env, rule);
         }
 
         // 最后执行 goto 任务：确保终止状态停在目标位置（放最前/中间都会被后续移动破坏）
         for (const auto& rule : goto_tasks) {
+            if (devil_elapsed_sec() > DEVIL_TIME_BUDGET_SEC) {
+                cout << "★ 接近 5s 限时，跳过 goto 任务" << endl;
+                break;
+            }
             execute_task_with_constraints(env, ins_parser, rule);
         }
 
