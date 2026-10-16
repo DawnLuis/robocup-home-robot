@@ -125,8 +125,12 @@ void Devil::Plan()
         }
 
         // 先执行非状态任务（putin/takeout 等可能需要容器打开）
+        // ★★ goto 只花 1 个 Move(约 0.1s) 却值 40 分, 而它排在最后执行
+        //   —— 时间不够时它第一个被牺牲(实测 G=14 大题上每题白丢40)。
+        //   给它预留时间预算(无 goto 任务时不预留)。
+        const double TIME_RESERVE_FOR_GOTO = goto_tasks.empty() ? 0.0 : 0.20;
         for (const auto& rule : tasks) {
-            if (devil_elapsed_sec() > DEVIL_TIME_BUDGET_SEC) {
+            if (devil_elapsed_sec() > DEVIL_TIME_BUDGET_SEC - TIME_RESERVE_FOR_GOTO) {
                 cout << "★ 接近 5s 限时(已用 " << devil_elapsed_sec() << "s)，提前收工避免被强杀" << endl;
                 break;
             }
@@ -135,7 +139,7 @@ void Devil::Plan()
 
         // 再执行状态任务（close/opened），避免提前关闭容器导致后续操作失败
         for (const auto& rule : state_tasks) {
-            if (devil_elapsed_sec() > DEVIL_TIME_BUDGET_SEC) {
+            if (devil_elapsed_sec() > DEVIL_TIME_BUDGET_SEC - TIME_RESERVE_FOR_GOTO) {
                 cout << "★ 接近 5s 限时，跳过剩余状态任务" << endl;
                 break;
             }
