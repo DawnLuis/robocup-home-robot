@@ -80,29 +80,39 @@ void Devil::Plan()
 
     // 任务分组和优先级排序
     vector<Rule> tasks;
-    vector<Rule> state_tasks; // opened/closed 状态任务
-    
-    for (const auto& rule : ins_parser.get_rules()) {
-        if (rule.type == RuleType::TaskAllowed) {
-            // 将状态任务分开处理（兼容动词open/close和形容词opened/closed）
-            if (rule.head.name == "opened" || rule.head.name == "closed" ||
-                rule.head.name == "open" || rule.head.name == "close") {
-                state_tasks.push_back(rule);
-            } else {
-                tasks.push_back(rule);
+        vector<Rule> state_tasks; // opened/closed 状态任务
+        vector<Rule> goto_tasks;  // goto 任务（目标是"终止状态在目标位置"，必须最后执行）
+
+        for (const auto& rule : ins_parser.get_rules()) {
+            if (rule.type == RuleType::TaskAllowed) {
+                // 将状态任务分开处理（兼容动词open/close和形容词opened/closed）
+                if (rule.head.name == "opened" || rule.head.name == "closed" ||
+                    rule.head.name == "open" || rule.head.name == "close") {
+                    state_tasks.push_back(rule);
+                } else if (rule.head.name == "goto") {
+                    // goto 的目标判定是 h(sameloc(B))，即"终止状态"在目标位置；
+                    // 若其后还有任何会移动的任务，目标会被带离而失效（实测每题白丢 40 分）
+                    goto_tasks.push_back(rule);
+                } else {
+                    tasks.push_back(rule);
+                }
             }
         }
-    }
 
-    // 先执行非状态任务（putin/takeout 等可能需要容器打开）
-    for (const auto& rule : tasks) {
-        execute_task_with_constraints(env, ins_parser, rule);
-    }
+        // 先执行非状态任务（putin/takeout 等可能需要容器打开）
+        for (const auto& rule : tasks) {
+            execute_task_with_constraints(env, ins_parser, rule);
+        }
 
-    // 最后执行状态任务（close/opened），避免提前关闭容器导致后续操作失败
-    for (const auto& rule : state_tasks) {
-        execute_state_task(env, rule);
-    }
+        // 再执行状态任务（close/opened），避免提前关闭容器导致后续操作失败
+        for (const auto& rule : state_tasks) {
+            execute_state_task(env, rule);
+        }
+
+        // 最后执行 goto 任务：确保终止状态停在目标位置（放最前/中间都会被后续移动破坏）
+        for (const auto& rule : goto_tasks) {
+            execute_task_with_constraints(env, ins_parser, rule);
+        }
 
     cout << "所有任务执行完成。" << endl;
 }
