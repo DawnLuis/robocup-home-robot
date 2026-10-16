@@ -1,7 +1,9 @@
 # 赛前现场清单 · RoboCup 服务机器人仿真（队伍 Dawnluis）
 
-> 代码与题目已定稿：GitHub `DawnLuis/robocup-home-robot`，HEAD `e86d2c6`。
-> 自出题 stage1=6462 / stage2=5917（NT 模式，多轮均值）。现场按下面顺序打勾执行。
+> 代码与题目已定稿：GitHub `DawnLuis/robocup-home-robot`，HEAD `9f30a00`。
+> 官方题库基线：NT stage1=8812 / stage2=7458~7584；自出 stage1=6464。
+> 提交题目 = `tests/stage2` 的 30 道加坑题（G=14 / C=6 / 满分 780）；提交前跑 `scripts/robocup-终检.sh`（8 项）。
+> 现场按下面顺序打勾执行。
 
 ---
 
