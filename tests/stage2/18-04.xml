@@ -9,12 +9,12 @@
 (sort 4 worktable) (size 4 big) (at 4 4)
 (sort 5 couch) (size 5 big) (at 5 5)
 (sort 6 plant) (size 6 big) (at 6 6)
-(sort 7 bottle) (size 7 small) (color 7 blue)
+(sort 7 bottle) (size 7 small) (color 7 blue) (at 7 7)
 (sort 8 cup) (size 8 small) (color 8 red) (at 8 8)
 (sort 9 can) (size 9 small) (color 9 yellow)
     </info>
     <mis>
-    (inside 7 2)
+    
     </mis>
     <err>
         <r>(inside 9 2)</r>

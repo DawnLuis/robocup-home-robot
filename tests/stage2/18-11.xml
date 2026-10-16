@@ -8,12 +8,12 @@
 (sort 3 closet) (size 3 big) (at 3 3) (type 3 container) (closed 3)
 (sort 4 bed) (size 4 big) (at 4 4)
 (sort 5 worktable) (size 5 big) (at 5 5)
-(sort 6 book) (size 6 small) (color 6 black)
+(sort 6 book) (size 6 small) (color 6 black) (at 6 6)
 (sort 7 cup) (size 7 small) (color 7 yellow)
 (sort 8 bottle) (size 8 small) (color 8 white)
     </info>
     <mis>
-    (inside 6 2)
+    
     </mis>
     <err>
         <r>(inside 7 2)</r>

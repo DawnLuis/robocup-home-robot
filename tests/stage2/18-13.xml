@@ -8,12 +8,12 @@
 (sort 3 microwave) (size 3 big) (at 3 3) (type 3 container) (opened 3)
 (sort 4 sofa) (size 4 big) (at 4 4)
 (sort 5 plant) (size 5 big) (at 5 5)
-(sort 6 bottle) (size 6 small) (color 6 black)
+(sort 6 bottle) (size 6 small) (color 6 black) (at 6 6)
 (sort 7 cup) (size 7 small) (color 7 white)
 (sort 8 book) (size 8 small) (color 8 blue) (at 8 4)
     </info>
     <mis>
-    (inside 6 2)
+    
     </mis>
     <err>
         <r>(inside 7 2)</r>

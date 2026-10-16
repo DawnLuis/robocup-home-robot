@@ -9,12 +9,12 @@
 (sort 4 sofa) (size 4 big) (at 4 4)
 (sort 5 chair) (size 5 big) (at 5 5)
 (sort 6 teapoy) (size 6 big) (at 6 6)
-(sort 7 can) (size 7 small) (color 7 black)
+(sort 7 can) (size 7 small) (color 7 black) (at 7 7)
 (sort 8 remotecontrol) (size 8 small) (color 8 green) (at 8 8)
 (sort 9 book) (size 9 small) (color 9 white)
     </info>
     <mis>
-    (inside 7 2)
+    
     </mis>
     <err>
         <r>(inside 9 2)</r>

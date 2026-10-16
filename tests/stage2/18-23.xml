@@ -11,11 +11,11 @@
 (sort 6 chair) (size 6 big) (at 6 6)
 (sort 7 teapoy) (size 7 big) (at 7 7)
 (sort 8 remotecontrol) (size 8 small) (color 8 green) (inside 8 2)
-(sort 9 can) (size 9 small) (color 9 red)
+(sort 9 can) (size 9 small) (color 9 red) (at 9 9)
 (sort 10 bottle) (size 10 small) (color 10 blue)
     </info>
     <mis>
-    (inside 9 2)
+    
     </mis>
     <err>
         <r>(inside 10 2)</r>

@@ -11,15 +11,15 @@
 (sort 6 table) (size 6 big) (at 6 6)
 (sort 7 plant) (size 7 big) (at 7 7)
 (sort 8 book) (size 8 small) (color 8 blue) (inside 8 3)
-(sort 9 cup) (size 9 small) (color 9 white)
+(sort 9 cup) (size 9 small) (color 9 white) (at 9 9)
 (sort 10 bottle) (size 10 small) (color 10 green)
     </info>
     <mis>
-    (inside 9 2)
+    
     </mis>
     <err>
         <r>(inside 10 2)</r>
-        <w>(inside 10 3)</w>
+        <w>(at 10 4)</w>
     </err>
     <extra>
     </extra>

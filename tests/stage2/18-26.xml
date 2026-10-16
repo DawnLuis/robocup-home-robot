@@ -10,12 +10,12 @@
 (sort 5 sofa) (size 5 big) (at 5 5)
 (sort 6 desk) (size 6 big) (at 6 6)
 (sort 7 table) (size 7 big) (at 7 7)
-(sort 8 cup) (size 8 small) (color 8 yellow)
+(sort 8 cup) (size 8 small) (color 8 yellow) (at 8 8)
 (sort 9 book) (size 9 small) (color 9 blue)
 (sort 10 can) (size 10 small) (color 10 green) (at 10 7)
     </info>
     <mis>
-    (inside 8 2)
+    
     </mis>
     <err>
         <r>(inside 9 2)</r>
