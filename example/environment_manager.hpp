@@ -1,3 +1,8 @@
+//------------------------------------------------------------------
+// RoboCup 服务机器人仿真赛项 · 参赛程序
+// Author : Dawnluis   (GitHub: DawnLuis)
+// Repo   : https://github.com/DawnLuis/robocup-home-robot
+//------------------------------------------------------------------
 #ifndef ENVIRONMENT_MANAGER_HPP_
 #define ENVIRONMENT_MANAGER_HPP_
 
