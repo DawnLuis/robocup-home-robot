@@ -1235,10 +1235,27 @@ bool Devil::execute_pickup(EnvironmentManager& env, int obj_id, bool allow_reask
             env.update_after_takeout(obj_id, container_id);
             cout << "  成功取出物体 #" << obj_id << endl;
             return true;
-        } else {
-            cout << "  TakeOut 失败！" << endl;
-            return false;
         }
+        cout << "  TakeOut 失败！" << endl;
+        // ★ 失败重验证(与 execute_takeout 的兜底一致): env 说"物体在容器内"可能来自
+        //   err 的 w 假线索或 AskLoc 的假答案 —— 清除后重查一次, 改判真实位置。
+        //   此前该分支直接 return false 导致 pickup 任务彻底失败(实测 18-02 stage2 收尾
+        //   Move→TakeOut|false 后无任何动作, 目标丢失且白扣动作分)。
+        if (allow_reask) {
+            cout << "  位置信息可能为假, 清除后重新 AskLoc..." << endl;
+            env.forget_position(obj_id);
+            int real = askloc_reveal(env, obj_id);
+            if (real > 0 && real != container_id) {
+                cout << "  物体实际在容器 #" << real << " 内, 转去取出" << endl;
+                return execute_takeout(env, obj_id, real, false, true);
+            }
+            if (real == -1) {
+                cout << "  物体实际在地面, 改用 PickUp" << endl;
+                return execute_pickup(env, obj_id, false);
+            }
+            cout << "  重查后仍无法取出该物体。" << endl;
+        }
+        return false;
     }
 
     // 物体在地面上(或位置未知)
