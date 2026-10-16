@@ -399,6 +399,23 @@ bool Devil::execute_pickup_task(EnvironmentManager& env, const Predicate& task) 
         }
     }
 
+    // ★★ pickup(A) 目标语义是 not outagent(A) = A 在手上 **或盘上**
+    //   (fortask.lp: goal(pickup(A)) :- not h(outagent(A)), h(outagent(A)) :- not hold, not plate)
+    //   旧代码只查了"手持", 漏了"在盘上" → A 已在盘上时还去别处找物体白做动作
+    //   (回溯: 现场一道题俺780分而别队942分, 反推别队只需~12动作、俺多做了30+个).
+    if (x_type != ObjectType::Unknown) {
+        for (const auto& _p : env.get_objects()) {
+            const Object& _o = _p.second;
+            if (_o.id == 0) continue;
+            if (_o.type != x_type) continue;
+            if (!(x_color == Color::Unknown || _o.color == x_color)) continue;
+            if (_o.on_plate) {
+                cout << "    物体 #" << _o.id << " 已在盘上(not outagent 已成立), pickup 目标已满足" << endl;
+                return true;
+            }
+        }
+    }
+
     // 使用组合条件查找物体
     if (x_type != ObjectType::Unknown) {
         // ★ 若当前手持物体已满足 type+color 条件，pickup 任务已完成，直接返回
@@ -779,6 +796,33 @@ bool Devil::execute_goto_task(EnvironmentManager& env, const Predicate& task) {
 
 bool Devil::execute_give_task(EnvironmentManager& env, const Predicate& task) {
     int obj_id = -1;
+
+    // ★★ give(human,A) 的目标语义: sameplace(A,human) + outagent(A) (fortask.lp)
+    //   若同类型同颜色物体已在 human 所在位置且不在手/盘 → 目标已满足, 零动作收分
+    //   (9 种 goal 里 puton/putin/takeout/goto/open/close/pickup 都有短路, 只差 give)
+    {
+        ObjectType _gt = ObjectType::Unknown; Color _gc = Color::Unknown;
+        for (const auto& c : task.conds) {
+            if (c.var != "X") continue;
+            if (c.attr == "sort") _gt = ins_parser.str_to_object_type(c.value);
+            else if (c.attr == "color") _gc = get_color_from_string(c.value);
+        }
+        int _hl = env.get_entity_location("human");
+        if (_gt != ObjectType::Unknown && _hl != -1) {
+            for (const auto& _p : env.get_objects()) {
+                const Object& _o = _p.second;
+                if (_o.id == 0) continue;
+                if (_o.type != _gt) continue;
+                if (!(_gc == Color::Unknown || _o.color == _gc)) continue;
+                if (_o.held_by_robot || _o.on_plate) continue;
+                int _ol = env.get_object_location(_o.id);
+                if (_ol != -1 && _ol == _hl) {
+                    cout << "  give 目标已满足(#" << _o.id << " 已在 human 处), 零动作收分" << endl;
+                    return true;
+                }
+            }
+        }
+    }
     for (const auto& cond : task.conds) {
         if (cond.var == "X") {
             ObjectType type = ins_parser.str_to_object_type(cond.value);
