@@ -505,6 +505,25 @@ bool Devil::execute_puton_task(EnvironmentManager& env, const Predicate& task) {
         return false;
     }
 
+    // ★★ 目标已达成则零动作收分(省动作=提效率分, 大题上还能换出时间)
+    //   评分事实(fortask.lp 实锤): goal(puton(A,B)) :- h(sameplace(A,B)), h(outagent(A))
+    //   —— "X 与 Y 同位置 且 X 不在手/盘" 即已完成。
+    //   同族检查 putin/takeout/goto/open/close 都有, 只有 puton 漏了。
+    {
+        for (const auto& _p : env.get_objects()) {
+            const Object& _o = _p.second;
+            if (_o.id == 0) continue;
+            if (_o.type != x_type) continue;
+            if (!(x_color == Color::Unknown || _o.color == x_color)) continue;
+            if (_o.held_by_robot || _o.on_plate) continue;
+            int _xl = env.get_object_location(_o.id);
+            if (_xl != -1 && _xl == target_loc) {
+                cout << "  puton 目标已满足(#" << _o.id << " 已与 #" << big_obj_id << " 同位置), 零动作收分" << endl;
+                return true;
+            }
+        }
+    }
+
     // ★ 候选重试循环(与 putin 对称): 某候选取不出/放不下 → 换下一个候选
     //   (95.xml 实锤: "Put a book on the bed" 选中藏在禁开冰箱里的书, 取物被拦后
     //    整条任务丢弃(白丢40分); 换候选则只需开 closet, 不毁约又能拿分)
@@ -1243,11 +1262,16 @@ bool Devil::execute_pickup(EnvironmentManager& env, int obj_id, bool allow_reask
 
         // 打开容器（如需要）
         ContainerState state = env.get_container_state(container_id);
-        if (state == ContainerState::Closed) {
-            cout << "  打开容器 #" << container_id << endl;
+        // ★★ 预设坑位(77.xml 实锤, +40/题): 原来写的是 `state == Closed` 才开门,
+        //   但容器状态可以是 **Unknown**（print_all 把 Unknown 也印成 "closed",
+        //   所以日志上看着是 closed、代码却不开门）。Unknown 时不开门 → TakeOut 必失败
+        //   → 整条 pickup 目标丢 40 分。改为 "只要不是明确 Opened 就尝试开门"。
+        //   同文件 execute_takeout 用的就是 `!= Opened`(正确), 只有本捷径判错 —— 排查同类问题时先横比同族路径。
+        if (state != ContainerState::Opened) {
+            cout << "  尝试打开容器 #" << container_id << "(状态非 Opened)" << endl;
             if (!Open(container_id)) {
-                cout << "  打开容器失败！" << endl;
-                return false;
+                // ★ 开门失败很可能是"其实已经开着" → 不放弃, 继续试 TakeOut
+                cout << "  打开容器失败, 继续尝试 TakeOut" << endl;
             }
             env.update_after_open(container_id);
         }
@@ -1479,6 +1503,24 @@ bool Devil::execute_takeout(EnvironmentManager& env, int small_obj_id, int conta
             }
         }
         cout << endl;
+
+        // ★★ 预设坑位(77.xml 实锤): 若 env 认为容器"已开着" 而跳过了 Open,
+        //   TakeOut 反而失败 → 很可能门实际没开(客户端状态来自 mis/err,本就不可靠)。
+        //   立即补开一次门再重试: 花 2分+一个动作换回 40 分目标。
+        //   ★ 不受 allow_reask 限制: 补开门只发一次动作、不会递归,
+        //     而 AskLoc 路径(1299行等)传的是 allow_reask=false(为防递归), 若依赖它就永远不会触发。
+        if (state == ContainerState::Opened) {
+            cout << "  TakeOut 失败且之前认为门开着, 补开一次再试..." << endl;
+            if (Open(container_id)) {
+                env.update_after_open(container_id);
+                if (TakeOut(small_obj_id, container_id)) {
+                    env.update_after_takeout(small_obj_id, container_id);
+                    cout << "  补开门后取出成功 #" << small_obj_id << endl;
+                    return true;
+                }
+                cout << "  补开门后仍失败" << endl;
+            }
+        }
 
         // ★ 失败重验证: 位置线索(err的w/AskLoc答案)可能是假的, 清除后重查一次
         if (allow_reask) {
