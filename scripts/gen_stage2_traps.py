@@ -21,9 +21,9 @@ import os, sys, random, itertools
 # ---------- 世界素材 (借 2026 平台官方 ObjectType 名称, 保证可解析) ----------
 BIGS = [(2,'desk'),(3,'television'),(4,'chair'),(5,'bed'),(6,'sofa'),(7,'table'),
         (8,'worktable'),(9,'plant'),(10,'teapoy'),(11,'couch'),(12,'airconditioner'),(13,'washmachine')]
-CONTS = [(14,'refrigerator','closed'),(15,'closet','closed'),(16,'cupboard','opened'),(17,'microwave','opened'),(18,'closet','closed')]
+CONTS = [(14,'refrigerator','closed'),(15,'closet','closed'),(16,'cupboard','opened'),(17,'microwave','opened')]
 FREE_BIG = [b for b in BIGS if b[1] not in ('washmachine','airconditioner')]   # 可当搬运目标
-SMALLS = [(20,'book','red'),(21,'book','green'),(22,'book','yellow'),(23,'book','blue'),
+SMALLS = [(18,'cup','yellow'),(19,'book','black'),(20,'book','red'),(21,'book','green'),(22,'book','yellow'),(23,'book','blue'),
           (24,'can','red'),(25,'can','green'),(26,'can','blue'),(27,'can','black'),
           (28,'bottle','red'),(29,'bottle','green'),(30,'bottle','blue'),(31,'bottle','white'),
           (32,'cup','red'),(33,'cup','green'),(34,'cup','blue'),(35,'cup','black'),
@@ -52,7 +52,7 @@ def gen_one(seed):
 
     # ---------- 坑 A: 搬运任务 (G 主体) ----------
     # 挑 8 个小物体送到 8 个不同大物体/容器; 避开 TRAP_BOOK(它另有安排)
-    pool = [i for i, s, c in SMALLS if i not in (TRAP_BOOK, PLATE_OBJ, 36, 37, 22)]  # 22 留给存在量词目标做干净实例
+    pool = [i for i, s, c in SMALLS if i not in (TRAP_BOOK, PLATE_OBJ, 36, 37, 22, 39)]  # 22/39 受保护或留作干净实例
     rnd.shuffle(pool)
     small_pool = pool[:10]
     big_pool   = [b[0] for b in FREE_BIG]; rnd.shuffle(big_pool)
@@ -95,7 +95,7 @@ def gen_one(seed):
         cons.append(('cons_not', 'puton', a, 11, SMALL_DICT[a][1], SMALL_DICT[a][2], 'couch'))
         cons.append(('cons_not', 'puton', b, 9,  SMALL_DICT[b][1], SMALL_DICT[b][2], 'plant'))
     # (4) cons_notnot 用"物体在盘上"(初始满足 + 全程不被搬动)
-    cons.append(('cons_notnot_closed', 18, 'closet', None, None, None, None))  # 独立容器, 不与任何 task/其他约束重叠
+    cons.append(('cons_notnot_on', 39, 'can', 'white', 8, 'worktable', None))  # 白罐须在 worktable 上(初始满足+task 不搬)
     # (5) cons_notnot 用容器状态(选一个本题不 open/close 的容器)
     cons.append(('cons_notnot_opened', 16, 'cupboard', None, None, None, None))
 
@@ -140,8 +140,8 @@ def cons_instr(c):
             return '(:cons_not (:task (puton X Y) (:cond (sort X %s)%s (sort Y %s))))' % (
                 cx and sx or sx, '' if cx is None else ' (color X %s)' % cx, sy)
         raise ValueError(act)
-    if k == 'cons_notnot_closed':
-        return '(:cons_notnot (:info (closed X) (:cond (sort X %s))))' % c[2]
+    if k == 'cons_notnot_on':
+        return '(:cons_notnot (:info (on X Y) (:cond (sort X %s) (color X %s) (sort Y %s))))' % (c[2], c[3], c[5])
     if k == 'cons_notnot_opened':
         return '(:cons_notnot (:info (opened X) (:cond (sort X %s))))' % c[2]
     raise ValueError(k)
@@ -152,7 +152,7 @@ def cons_nl(c):
         _, act, x, y, sx, cx, sy = c
         if act == 'open':  return 'Do not open the %s.' % sy
         if act == 'puton': return 'Do not put the %s %s on the %s.' % (cx, sx, sy)
-    if k == 'cons_notnot_closed':  return 'The %s must be closed.' % c[2]
+    if k == 'cons_notnot_on':  return 'The %s %s must be on the %s.' % (c[3], c[2], c[5])
     if k == 'cons_notnot_opened': return 'The cupboard must be opened.'
     raise ValueError(k)
 
@@ -167,6 +167,7 @@ def scene_pos(seed):
     for i, s, c in SMALLS:
         if i == PLATE_OBJ: continue
         pos[i] = perm.pop()
+    pos[39] = pos[8]      # 受 cons_notnot(on) 保护的白罐初始就在 worktable 位置上
     return pos
 
 def render(seed, tasks, cons):
@@ -221,14 +222,19 @@ def check(seed, tasks, cons):
     if not (200 <= ub <= 1000):
         errs.append('理论满分 %d 越界' % ub)
     # cons_notnot(plate X): X 必须在盘上(PLATE_OBJ) 且不被任何 task 搬动
+    kinds = set(c[0] for c in cons)
     for c in cons:
-        if c[0] == 'cons_notnot_closed':
+        if c[0] == 'cons_notnot_on':
             oid = c[1]
-            if CONT_DICT[oid][2] != 'closed':
-                errs.append('cons_notnot(closed) 的对象初始不是 closed')
-            for t in tasks:
-                if t[0] == 'close' and t[2] == oid: errs.append('受保护容器被 task close(契约重复)')
-                if t[0] == 'putin' and t[2] == oid: errs.append('向受保护的 closed 容器 putin(需开门)')
+            if any(t[1] == oid for t in tasks):
+                errs.append('cons_notnot(on) 保护的物体被 task 搬动(直接互斥)')
+    # 编号断号与重复 sort 自检
+    ids = sorted([1] + [i for i, s in BIGS] + [i for i, s, st in CONTS] + [i for i, s, c in SMALLS])  # 1=human
+    if ids != list(range(1, len(ids) + 1)):
+        errs.append('编号断号/重复: %s' % ids)
+    sorts = [s for i, s in BIGS if s in ('closet','cupboard','refrigerator','microwave')] + [s for i, s, st in CONTS]
+    dup = [s for s in set(sorts) if sorts.count(s) > 1]
+    if dup: errs.append('重复容器类型: %s' % dup)
     # cons_notnot(opened cupboard): 没有任何 task open/close 它, 初始 opened
     for c in cons:
         if c[0] == 'cons_notnot_opened':
